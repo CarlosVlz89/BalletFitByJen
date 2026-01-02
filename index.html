@@ -44,7 +44,8 @@
         }
 
         .hero-bg {
-            background-image: linear-gradient(rgba(26, 58, 62, 0.5), rgba(26, 58, 62, 0.4)), url('https://images.unsplash.com/photo-1518310383802-640c2de311b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            /* Se asume que subirás un archivo llamado hero.jpg a tu GitHub */
+            background-image: linear-gradient(rgba(26, 58, 62, 0.5), rgba(26, 58, 62, 0.4)), url('hero.jpeg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -76,7 +77,6 @@
     <nav class="sticky top-0 w-full z-50 transition-all duration-300 bg-white/95 backdrop-blur-sm shadow-sm" id="navbar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-20">
-                <!-- Logo Area -->
                 <div class="flex-shrink-0 flex items-center">
                     <a href="#inicio" class="flex items-center gap-3">
                         <div class="flex flex-col leading-tight">
@@ -86,7 +86,6 @@
                     </a>
                 </div>
 
-                <!-- Desktop Menu -->
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#inicio" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Inicio</a>
                     <a href="#sobre-mi" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Jen</a>
@@ -95,7 +94,6 @@
                     <a href="#contacto" class="nav-link px-6 py-2 bg-brand-dark text-white text-sm uppercase tracking-widest hover:bg-brand-teal transition-colors duration-300 rounded-sm text-center">Reservar</a>
                 </div>
 
-                <!-- Mobile Menu Button -->
                 <div class="md:hidden flex items-center">
                     <button id="mobile-menu-btn" type="button" class="text-brand-teal hover:text-brand-dark focus:outline-none">
                         <i class="ph ph-list text-3xl"></i>
@@ -104,7 +102,6 @@
             </div>
         </div>
 
-        <!-- Mobile Menu Panel -->
         <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg">
             <div class="px-4 pt-2 pb-6 space-y-2 text-center">
                 <a href="#inicio" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Inicio</a>
@@ -116,12 +113,11 @@
         </div>
     </nav>
 
-    <!-- Promotional Section (DEBAJO DEL MENÚ) -->
+    <!-- Promotional Section -->
     <section class="py-10 bg-white">
         <div class="max-w-4xl mx-auto px-4">
             <div class="border-2 border-brand-teal p-1 rounded-sm">
                 <div class="border border-brand-teal/30 p-6 md:p-10 text-center bg-brand-tealLight/20 relative overflow-hidden rounded-sm">
-                    <!-- Decoración Sutil -->
                     <div class="absolute -top-10 -right-10 w-32 h-32 bg-brand-teal/5 rounded-full"></div>
                     <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-brand-teal/5 rounded-full"></div>
                     
@@ -168,7 +164,8 @@
             <div class="flex flex-col md:flex-row items-center gap-12 lg:gap-20">
                 <div class="w-full md:w-1/2 relative">
                     <div class="absolute -top-4 -left-4 w-full h-full border-2 border-brand-tealLight z-0"></div>
-                    <img src="https://images.unsplash.com/photo-1550026593-f38a6efbc908?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Bailarina Jen" class="relative z-10 w-full shadow-lg object-cover h-[550px] grayscale hover:grayscale-0 transition-all duration-700">
+                    <!-- Se asume que subirás un archivo llamado jen.jpg a tu GitHub -->
+                    <img src="jen.jpeg" alt="Bailarina Jen" class="relative z-10 w-full shadow-lg object-cover h-[550px] grayscale hover:grayscale-0 transition-all duration-700">
                 </div>
                 <div class="w-full md:w-1/2">
                     <span class="text-brand-teal font-bold uppercase tracking-widest text-sm mb-2 block">Directora & Instructora</span>
@@ -228,7 +225,6 @@
     <section id="horarios" class="py-20 bg-white">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col md:flex-row gap-12">
-                <!-- Schedule -->
                 <div class="flex-1">
                     <h3 class="font-serif text-3xl mb-8 border-l-4 border-brand-teal pl-4 text-brand-dark">Horarios de Clase</h3>
                     <div class="space-y-4">
@@ -263,7 +259,6 @@
                     </div>
                 </div>
 
-                <!-- Pricing -->
                 <div class="flex-1 bg-brand-tealLight/30 p-8 rounded-lg border border-brand-tealLight">
                     <h3 class="font-serif text-2xl mb-6 text-center text-brand-dark">Planes Mensuales</h3>
                     <div class="space-y-6">
@@ -348,12 +343,10 @@
         </div>
     </footer>
 
-    <!-- WhatsApp Floating Button -->
     <a href="https://wa.me/5515968211" target="_blank" class="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
         <i class="ph ph-whatsapp-logo text-3xl"></i>
     </a>
 
-    <!-- Scripts -->
     <script>
         const btn = document.getElementById('mobile-menu-btn');
         const menu = document.getElementById('mobile-menu');

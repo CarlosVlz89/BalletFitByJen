@@ -21,7 +21,6 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        // Se establece Playfair Display como la fuente global
                         serif: ['"Playfair Display"', 'serif'],
                         sans: ['"Playfair Display"', 'serif'],
                     },
@@ -44,12 +43,12 @@
             scroll-padding-top: 100px;
         }
 
-        /* Fuente global forzada */
         body {
             font-family: 'Playfair Display', serif;
         }
 
         .hero-bg {
+            /* Extensión actualizada a .jpeg */
             background-image: linear-gradient(rgba(26, 58, 62, 0.5), rgba(26, 58, 62, 0.4)), url('hero.jpeg');
             background-size: cover;
             background-position: center;
@@ -82,7 +81,6 @@
     <nav class="sticky top-0 w-full z-50 transition-all duration-300 bg-white/95 backdrop-blur-sm shadow-sm" id="navbar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-20">
-                <!-- Logo Area -->
                 <div class="flex-shrink-0 flex items-center">
                     <a href="#inicio" class="flex items-center gap-3">
                         <div class="flex flex-col leading-tight">
@@ -92,7 +90,6 @@
                     </a>
                 </div>
 
-                <!-- Desktop Menu -->
                 <div class="hidden md:flex items-center space-x-8">
                     <a href="#inicio" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Inicio</a>
                     <a href="#sobre-mi" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Jen</a>
@@ -101,7 +98,6 @@
                     <a href="#contacto" class="nav-link px-6 py-2 bg-brand-dark text-white text-sm uppercase tracking-widest hover:bg-brand-teal transition-colors duration-300 rounded-sm text-center">Reservar</a>
                 </div>
 
-                <!-- Mobile Menu Button -->
                 <div class="md:hidden flex items-center">
                     <button id="mobile-menu-btn" type="button" class="text-brand-teal hover:text-brand-dark focus:outline-none">
                         <i class="ph ph-list text-3xl"></i>
@@ -110,7 +106,6 @@
             </div>
         </div>
 
-        <!-- Mobile Menu Panel -->
         <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg">
             <div class="px-4 pt-2 pb-6 space-y-2 text-center">
                 <a href="#inicio" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Inicio</a>
@@ -173,6 +168,7 @@
             <div class="flex flex-col md:flex-row items-center gap-12 lg:gap-20">
                 <div class="w-full md:w-1/2 relative">
                     <div class="absolute -top-4 -left-4 w-full h-full border-2 border-brand-tealLight z-0"></div>
+                    <!-- Ruta actualizada a .jpeg -->
                     <img src="jen.jpeg" alt="Bailarina Jen" class="relative z-10 w-full shadow-lg object-cover h-[550px] grayscale hover:grayscale-0 transition-all duration-700">
                 </div>
                 <div class="w-full md:w-1/2">
@@ -320,7 +316,7 @@
                         <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-colors shadow-sm">
                             <i class="ph ph-instagram-logo text-xl"></i>
                         </a>
-                        <a href="https://wa.me/5515968211" target="_blank" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-colors shadow-sm">
+                        <a href="https://wa.me/3331844195" target="_blank" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-colors shadow-sm">
                             <i class="ph ph-whatsapp-logo text-xl"></i>
                         </a>
                     </div>
@@ -340,7 +336,7 @@
                     <h4 class="text-xl mb-4 text-brand-dark">¿List@ para empezar?</h4>
                     <p class="text-gray-500 text-sm mb-6">Agenda tu clase de prueba vía WhatsApp o Instagram.</p>
                     <div class="flex flex-col gap-3">
-                        <a href="https://wa.me/5515968211" class="bg-brand-teal text-white py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-dark transition-colors rounded-sm">
+                        <a href="https://wa.me/3331844195" class="bg-brand-teal text-white py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-dark transition-colors rounded-sm">
                             WhatsApp
                         </a>
                         <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="border border-brand-teal text-brand-teal py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-teal hover:text-white transition-colors rounded-sm">
@@ -358,7 +354,7 @@
     </footer>
 
     <!-- WhatsApp Floating Button -->
-    <a href="https://wa.me/5515968211" target="_blank" class="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+    <a href="https://wa.me/3331844195" target="_blank" class="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
         <i class="ph ph-whatsapp-logo text-3xl"></i>
     </a>
 
@@ -410,5 +406,4 @@
         });
     </script>
 </body>
-</html>
 </html>

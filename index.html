@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ballet Fit by Jen | Estudio en Guadalajara</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons (Phosphor Icons) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Lato"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            teal: '#369EAD', 
+                            tealLight: '#EBF5F6', 
+                            dark: '#1A3A3E', 
+                            gold: '#C5A059', 
+                            accent: '#369EAD'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        html {
+            scroll-padding-top: 100px;
+        }
+
+        .hero-bg {
+            background-image: linear-gradient(rgba(26, 58, 62, 0.5), rgba(26, 58, 62, 0.4)), url('https://images.unsplash.com/photo-1518310383802-640c2de311b2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #mobile-menu {
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="font-sans text-brand-dark antialiased bg-white">
+
+    <!-- Navbar -->
+    <nav class="sticky top-0 w-full z-50 transition-all duration-300 bg-white/95 backdrop-blur-sm shadow-sm" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo Area -->
+                <div class="flex-shrink-0 flex items-center">
+                    <a href="#inicio" class="flex items-center gap-3">
+                        <div class="flex flex-col leading-tight">
+                            <span class="font-serif text-2xl font-semibold tracking-tight text-brand-teal">Ballet Fit</span>
+                            <span class="text-brand-dark text-sm italic tracking-widest text-right">by Jen</span>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#inicio" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Inicio</a>
+                    <a href="#sobre-mi" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Jen</a>
+                    <a href="#metodo" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Método</a>
+                    <a href="#horarios" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium">Horarios</a>
+                    <a href="#contacto" class="nav-link px-6 py-2 bg-brand-dark text-white text-sm uppercase tracking-widest hover:bg-brand-teal transition-colors duration-300 rounded-sm text-center">Reservar</a>
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button id="mobile-menu-btn" type="button" class="text-brand-teal hover:text-brand-dark focus:outline-none">
+                        <i class="ph ph-list text-3xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Menu Panel -->
+        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg">
+            <div class="px-4 pt-2 pb-6 space-y-2 text-center">
+                <a href="#inicio" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Inicio</a>
+                <a href="#sobre-mi" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Jen</a>
+                <a href="#metodo" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Método</a>
+                <a href="#horarios" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Horarios</a>
+                <a href="#contacto" class="mobile-nav-link block px-3 py-4 text-brand-teal font-bold text-lg">Reservar Clase</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Promotional Section (DEBAJO DEL MENÚ) -->
+    <section class="py-10 bg-white">
+        <div class="max-w-4xl mx-auto px-4">
+            <div class="border-2 border-brand-teal p-1 rounded-sm">
+                <div class="border border-brand-teal/30 p-6 md:p-10 text-center bg-brand-tealLight/20 relative overflow-hidden rounded-sm">
+                    <!-- Decoración Sutil -->
+                    <div class="absolute -top-10 -right-10 w-32 h-32 bg-brand-teal/5 rounded-full"></div>
+                    <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-brand-teal/5 rounded-full"></div>
+                    
+                    <span class="inline-block px-4 py-1 bg-brand-teal text-white text-[10px] md:text-xs uppercase tracking-[0.2em] mb-4 font-bold rounded-full">Promoción Exclusiva</span>
+                    <h2 class="font-serif text-3xl md:text-5xl text-brand-dark mb-4 italic">Precios del 2025</h2>
+                    <p class="text-gray-600 text-base md:text-lg font-light leading-relaxed max-w-2xl mx-auto">
+                        ¡Comienza tu transformación hoy! Este mes, seguimos respetando los <br class="hidden md:block">
+                        <strong class="text-brand-teal font-bold tracking-tight uppercase">precios del año pasado para que no tengas excusas.</strong>
+                    </p>
+                    <div class="mt-6 flex justify-center gap-2 text-brand-teal">
+                        <i class="ph ph-sparkle text-xl"></i>
+                        <i class="ph ph-sparkle text-xl"></i>
+                        <i class="ph ph-sparkle text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hero Section -->
+    <header id="inicio" class="relative h-[80vh] flex items-center justify-center hero-bg text-white overflow-hidden">
+        <div class="text-center px-4 max-w-4xl mx-auto fade-in-up relative z-10">
+            <p class="text-sm md:text-base uppercase tracking-[0.3em] mb-4 text-brand-tealLight">Elegancia • Fuerza • Equilibrio</p>
+            <h1 class="font-serif text-5xl md:text-7xl mb-6 leading-tight">
+                Donde el Ballet encuentra<br>la fuerza del Fitness
+            </h1>
+            <p class="text-lg md:text-xl font-light mb-10 text-gray-200 max-w-2xl mx-auto">
+                Una fusión de pilates y entrenamiento funcional para promover la actividad física, la estética y la fuerza.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="#metodo" class="nav-link px-8 py-3 bg-brand-teal text-white uppercase tracking-widest text-sm hover:bg-white hover:text-brand-dark transition-all duration-300 shadow-lg">
+                    Conoce el Método
+                </a>
+                <a href="#contacto" class="nav-link px-8 py-3 border border-white text-white uppercase tracking-widest text-sm hover:bg-white hover:text-brand-dark transition-all duration-300">
+                    Contáctanos
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- About Section -->
+    <section id="sobre-mi" class="py-20 md:py-32 bg-white overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row items-center gap-12 lg:gap-20">
+                <div class="w-full md:w-1/2 relative">
+                    <div class="absolute -top-4 -left-4 w-full h-full border-2 border-brand-tealLight z-0"></div>
+                    <img src="https://images.unsplash.com/photo-1550026593-f38a6efbc908?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Bailarina Jen" class="relative z-10 w-full shadow-lg object-cover h-[550px] grayscale hover:grayscale-0 transition-all duration-700">
+                </div>
+                <div class="w-full md:w-1/2">
+                    <span class="text-brand-teal font-bold uppercase tracking-widest text-sm mb-2 block">Directora & Instructora</span>
+                    <h2 class="font-serif text-4xl mb-6 text-brand-dark border-b-2 border-brand-tealLight pb-4 inline-block text-balance">Hola, soy Jen</h2>
+                    <p class="text-gray-600 mb-6 leading-relaxed font-light text-lg">
+                        Mi vida ha estado dedicada a la danza y el movimiento. Actualmente soy orgullosa bailarina del <strong>Ballet de Jalisco desde el 2025</strong>, continuando una trayectoria que me ha llevado por escenarios internacionales.
+                    </p>
+                    <p class="text-gray-600 mb-6 leading-relaxed font-light text-lg">
+                        Fui bailarina en el <strong>Madison Ballet (2021-2023)</strong> y aprendiz en el Ballet de Jalisco (2017-2019). He tenido el honor de participar en producciones cinematográficas como <em>"El rey de todo el mundo"</em> de <strong>Carlos Saura</strong>.
+                    </p>
+                    <p class="text-gray-600 mb-8 leading-relaxed font-light text-lg">
+                        A través de <strong>Ballet Fit by Jen</strong>, fusiono la disciplina técnica del ballet con la potencia del fitness para ofrecerte un método que fortalece tu cuerpo y eleva tu confianza.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Method & Classes -->
+    <section id="metodo" class="py-20 bg-brand-tealLight/50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <span class="text-brand-teal font-bold uppercase tracking-widest text-sm">Fusión de Pilates & Funcional</span>
+                <h2 class="font-serif text-4xl mt-2 text-brand-dark">¿Qué es Ballet Fit?</h2>
+                <p class="max-w-2xl mx-auto mt-4 text-gray-600 font-light text-lg px-4">
+                    Es un entrenamiento completo de fuerza, resistencia cardiovascular y acondicionamiento físico. Contamos con clases específicas para cada grupo muscular y sesiones Full Body.
+                </p>
+                <div class="w-24 h-1 bg-brand-teal mx-auto mt-8"></div>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16 px-4">
+                <div class="bg-white p-6 rounded-sm shadow-sm border-t-4 border-brand-teal text-center hover:shadow-md transition-shadow">
+                    <div class="text-brand-teal text-4xl mb-3"><i class="ph ph-barbell"></i></div>
+                    <h4 class="font-bold mb-2">Polainas o Mancuernas</h4>
+                    <p class="text-sm text-gray-500">Para agregar resistencia y tonificar.</p>
+                </div>
+                <div class="bg-white p-6 rounded-sm shadow-sm border-t-4 border-brand-teal text-center hover:shadow-md transition-shadow">
+                    <div class="text-brand-teal text-4xl mb-3"><i class="ph ph-waves"></i></div>
+                    <h4 class="font-bold mb-2">Liga de Resistencia</h4>
+                    <p class="text-sm text-gray-500">Trabajo profundo y elongación.</p>
+                </div>
+                <div class="bg-white p-6 rounded-sm shadow-sm border-t-4 border-brand-teal text-center hover:shadow-md transition-shadow">
+                    <div class="text-brand-teal text-4xl mb-3"><i class="ph ph-rug"></i></div>
+                    <h4 class="font-bold mb-2">Mat de Yoga</h4>
+                    <p class="text-sm text-gray-500">Tu espacio personal de trabajo.</p>
+                </div>
+                <div class="bg-white p-6 rounded-sm shadow-sm border-t-4 border-brand-teal text-center hover:shadow-md transition-shadow">
+                    <div class="text-brand-teal text-4xl mb-3"><i class="ph ph-heart-beat"></i></div>
+                    <h4 class="font-bold mb-2">Cardio & Fuerza</h4>
+                    <p class="text-sm text-gray-500">Mejora tu condición física general.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Schedule / Pricing Preview -->
+    <section id="horarios" class="py-20 bg-white">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row gap-12">
+                <!-- Schedule -->
+                <div class="flex-1">
+                    <h3 class="font-serif text-3xl mb-8 border-l-4 border-brand-teal pl-4 text-brand-dark">Horarios de Clase</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                            <div>
+                                <span class="text-brand-dark font-bold block">Lunes</span>
+                                <span class="text-xs text-brand-teal uppercase tracking-widest">Ballet Fit Full Body</span>
+                            </div>
+                            <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm">7:00 pm - 8:00 pm</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                            <div>
+                                <span class="text-brand-dark font-bold block">Miércoles</span>
+                                <span class="text-xs text-brand-teal uppercase tracking-widest">Fuerza & Resistencia</span>
+                            </div>
+                            <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm">7:00 pm - 8:00 pm</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                            <div>
+                                <span class="text-brand-dark font-bold block">Viernes</span>
+                                <span class="text-xs text-brand-teal uppercase tracking-widest">Flexibilidad & Core</span>
+                            </div>
+                            <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm">7:00 pm - 8:00 pm</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+                            <div>
+                                <span class="text-brand-dark font-bold block">Sábado</span>
+                                <span class="text-xs text-brand-teal uppercase tracking-widest">Sesión Especial</span>
+                            </div>
+                            <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm">9:00 am - 10:00 am</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pricing -->
+                <div class="flex-1 bg-brand-tealLight/30 p-8 rounded-lg border border-brand-tealLight">
+                    <h3 class="font-serif text-2xl mb-6 text-center text-brand-dark">Planes Mensuales</h3>
+                    <div class="space-y-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-gray-700">4 Clases / mes</h4>
+                                <span class="text-xs text-gray-400">1 vez por semana</span>
+                            </div>
+                            <span class="text-xl font-serif text-brand-teal">$800 MXN</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-gray-700">8 Clases / mes</h4>
+                                <span class="text-xs text-gray-400">2 veces por semana</span>
+                            </div>
+                            <span class="text-xl font-serif text-brand-teal">$1,400 MXN</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold text-gray-700">Ilimitado</h4>
+                                <span class="text-xs text-gray-400">Acceso total</span>
+                            </div>
+                            <span class="text-xl font-serif text-brand-teal">$2,200 MXN</span>
+                        </div>
+                        <a href="#contacto" class="nav-link block w-full text-center mt-6 bg-brand-teal text-white py-3 font-bold text-sm uppercase tracking-widest hover:bg-brand-dark transition-all shadow-md">
+                            Reservar mi Lugar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="contacto" class="bg-brand-tealLight/40 pt-20 pb-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-12 mb-16">
+                
+                <div class="col-span-1">
+                    <h3 class="font-serif text-2xl font-bold mb-4 text-brand-teal">Ballet Fit <span class="text-brand-dark italic font-normal">by Jen</span></h3>
+                    <p class="text-gray-600 text-sm leading-relaxed mb-6">
+                        Un espacio dedicado a la conexión cuerpo-mente a través del movimiento consciente.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-colors shadow-sm">
+                            <i class="ph ph-instagram-logo text-xl"></i>
+                        </a>
+                        <a href="https://wa.me/5515968211" target="_blank" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-colors shadow-sm">
+                            <i class="ph ph-whatsapp-logo text-xl"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="col-span-1">
+                    <h4 class="font-bold uppercase tracking-widest text-xs mb-6 text-brand-teal">Ubicación</h4>
+                    <ul class="space-y-4">
+                        <li class="flex items-start">
+                            <i class="ph ph-map-pin text-brand-teal text-xl mr-3 mt-1"></i>
+                            <span class="text-gray-600 text-sm">Av. de los Científicos 659,<br>Colonia Colinas de la Normal,<br>Guadalajara, Jalisco.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="col-span-1 bg-white p-6 shadow-sm rounded-sm text-center">
+                    <h4 class="font-serif text-xl mb-4 text-brand-dark">¿List@ para empezar?</h4>
+                    <p class="text-gray-500 text-sm mb-6">Agenda tu clase de prueba vía WhatsApp o Instagram.</p>
+                    <div class="flex flex-col gap-3">
+                        <a href="https://wa.me/5515968211" class="bg-brand-teal text-white py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-dark transition-colors rounded-sm">
+                            WhatsApp
+                        </a>
+                        <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="border border-brand-teal text-brand-teal py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-teal hover:text-white transition-colors rounded-sm">
+                            Instagram
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="border-t border-brand-tealLight pt-8 text-center md:text-left">
+                <p class="text-[10px] text-gray-500 uppercase tracking-widest">&copy; 2026 Ballet Fit by Jen. Guadalajara, Jalisco.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WhatsApp Floating Button -->
+    <a href="https://wa.me/5515968211" target="_blank" class="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+        <i class="ph ph-whatsapp-logo text-3xl"></i>
+    </a>
+
+    <!-- Scripts -->
+    <script>
+        const btn = document.getElementById('mobile-menu-btn');
+        const menu = document.getElementById('mobile-menu');
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.classList.toggle('hidden');
+        });
+
+        const handleNavigation = (e) => {
+            const href = e.currentTarget.getAttribute('href');
+            if (href && href.startsWith('#')) {
+                e.preventDefault();
+                const targetId = href.substring(1);
+                const element = document.getElementById(targetId);
+                
+                if (element) {
+                    menu.classList.add('hidden');
+                    window.scrollTo({
+                        top: element.offsetTop - 100,
+                        behavior: 'smooth'
+                    });
+                    window.history.pushState(null, null, href);
+                }
+            }
+        };
+
+        document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
+            link.addEventListener('click', handleNavigation);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 30) {
+                navbar.classList.add('shadow-md');
+            } else {
+                navbar.classList.remove('shadow-md');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -19,14 +19,16 @@ import {
   Users, 
   Calendar, 
   DollarSign, 
-  Plus,
-  CheckCircle,
-  Trash2,
+  Plus, 
+  CheckCircle, 
+  Trash2, 
   LogOut,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  Loader2
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE FIREBASE SEGURA ---
+// --- CONFIGURACIÓN DE FIREBASE ---
 let db, auth;
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -41,24 +43,23 @@ try {
     db = getFirestore(app);
   }
 } catch (e) {
-  console.error("Error en configuración de Firebase:", e);
+  console.error("Error de inicialización:", e);
 }
 
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
   const [user, setUser] = useState(null);
   const [view, setView] = useState('dashboard');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [newStudent, setNewStudent] = useState({ name: '', phone: '', plan: '2 clases' });
+  const [newStudent, setNewStudent] = useState({ name: '', phone: '', plan: '2 clases x sem' });
 
-  // 1. GESTIÓN DE AUTENTICACIÓN
+  // 1. GESTIÓN DE AUTENTICACIÓN FIREBASE
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-
+    if (!auth) return;
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -67,70 +68,68 @@ export default function App() {
           await signInAnonymously(auth);
         }
       } catch (err) {
-        console.error("Error de autenticación:", err);
-        setError("Error al conectar con el servicio de seguridad.");
+        console.error("Auth Error:", err);
       }
     };
-
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) setError(null);
     });
     return () => unsubscribe();
   }, []);
 
-  // 2. ESCUCHA DE DATOS EN TIEMPO REAL
+  // 2. ESCUCHA DE DATOS (Solo si está logueado en la App y en Firebase)
   useEffect(() => {
-    if (!user || !db) return;
+    if (!user || !db || !isAuthenticated) return;
 
     const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
-    
     const unsubscribe = onSnapshot(studentsRef, 
       (snapshot) => {
-        const studentList = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        // Ordenamiento en memoria para cumplir con las reglas del entorno
+        const studentList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         studentList.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         setStudents(studentList);
         setLoading(false);
       },
       (err) => {
-        console.error("Error al obtener alumnas:", err);
-        setError("No se pudieron cargar los datos de las alumnas.");
+        console.error("Firestore Error:", err);
         setLoading(false);
       }
     );
-
     return () => unsubscribe();
-  }, [user]);
+  }, [user, isAuthenticated]);
 
-  // --- ACCIONES ---
-  const handleBackToSite = useCallback(() => {
-    if (typeof window.toggleSystem === 'function') {
-      window.toggleSystem(false);
+  // --- MANEJADORES ---
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (password === 'ballet2026') { // PUEDES CAMBIAR TU CLAVE AQUÍ
+      setIsAuthenticated(true);
+      setError(null);
+    } else {
+      setError("Clave de acceso incorrecta");
     }
-  }, []);
+  };
 
   const handleAddStudent = async (e) => {
     e.preventDefault();
     if (!user || !db || !newStudent.name) return;
-
+    
+    setSaving(true);
     try {
       const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
       await addDoc(studentsRef, {
         ...newStudent,
         name: newStudent.name.trim().toUpperCase(),
         registrationDate: new Date().toISOString(),
-        active: true,
         attendanceCount: 0
       });
-      setNewStudent({ name: '', phone: '', plan: '2 clases' });
+      setNewStudent({ name: '', phone: '', plan: '2 clases x sem' });
       setView('dashboard');
+      setSaving(false);
     } catch (err) {
       console.error("Error al guardar:", err);
+      setError("No se pudo guardar la alumna. Revisa tu conexión.");
+      setSaving(false);
     }
   };
 
@@ -142,39 +141,44 @@ export default function App() {
         attendanceCount: (currentCount || 0) + 1,
         lastAttendance: new Date().toISOString()
       });
-    } catch (err) {
-      console.error("Error al marcar asistencia:", err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  const deleteStudent = async (id, name) => {
-    if (!user || !db) return;
-    if (window.confirm(`¿Estás seguro de eliminar a ${name}?`)) {
-      try {
-        const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'students', id);
-        await deleteDoc(studentRef);
-      } catch (err) {
-        console.error("Error al eliminar:", err);
-      }
-    }
+  const handleExit = () => {
+    setIsAuthenticated(false);
+    if (typeof window.toggleSystem === 'function') window.toggleSystem(false);
   };
 
-  if (loading) {
+  // --- VISTA DE LOGIN ---
+  if (!isAuthenticated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-white font-serif">
-        <div className="text-[#369EAD] animate-pulse italic">Cargando Portal...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 p-4 font-serif text-center">
-        <div className="bg-white p-8 rounded-lg shadow-xl max-w-md">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Problema de conexión</h2>
-          <p className="text-gray-500 mb-6">{error}</p>
-          <button onClick={() => window.location.reload()} className="bg-[#369EAD] text-white px-6 py-2 rounded font-bold uppercase text-xs">Reintentar</button>
+      <div className="flex h-screen items-center justify-center bg-gray-50 font-serif p-4">
+        <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md border-t-8 border-[#369EAD] animate-in fade-in zoom-in duration-500">
+          <div className="text-center mb-8">
+            <div className="bg-[#EBF5F6] w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Lock className="text-[#369EAD] w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-bold text-[#1A3A3E] italic">Acceso al Portal</h2>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mt-2">Solo personal autorizado</p>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <input 
+              type="password" 
+              required
+              autoFocus
+              className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-center text-xl tracking-widest"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
+            {error && <p className="text-red-500 text-xs text-center font-bold italic">{error}</p>}
+            <button className="w-full bg-[#1A3A3E] text-white py-4 rounded-xl font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-[#369EAD] transition-all shadow-lg">
+              Entrar al Sistema
+            </button>
+            <button type="button" onClick={handleExit} className="w-full text-gray-400 text-[10px] uppercase font-bold tracking-widest">
+              Volver al sitio público
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -182,129 +186,94 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-serif pb-20">
-      {/* HEADER DEL PORTAL */}
-      <header className="bg-[#1A3A3E] text-white p-6 shadow-lg sticky top-0 z-50">
+      <nav className="bg-[#1A3A3E] text-white p-4 shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center px-2">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Portal Administrativo</h1>
-            <p className="text-[10px] text-[#EBF5F6] opacity-70 uppercase tracking-widest">Ballet Fit by Jen</p>
+          <div className="flex flex-col">
+            <h1 className="font-bold text-lg tracking-tight">Admin Ballet Fit</h1>
+            <span className="text-[10px] text-[#EBF5F6] opacity-60 uppercase tracking-widest">Jenny's Studio</span>
           </div>
-          <div className="flex gap-4 items-center">
-             <button onClick={() => setView('dashboard')} className={`p-2 rounded transition-colors ${view === 'dashboard' ? 'bg-[#369EAD]' : 'hover:bg-white/10'}`}>
-                <Users className="w-6 h-6" />
-             </button>
-             <button onClick={() => setView('add')} className={`p-2 rounded transition-colors ${view === 'add' ? 'bg-[#369EAD]' : 'hover:bg-white/10'}`}>
-                <Plus className="w-6 h-6" />
-             </button>
-             <button onClick={handleBackToSite} className="ml-4 p-2 text-gray-400 hover:text-white transition-colors" title="Cerrar Portal">
-                <LogOut className="w-5 h-5" />
+          <div className="flex items-center gap-6">
+             <button onClick={() => setView('dashboard')} className={`text-[10px] uppercase tracking-widest font-bold ${view === 'dashboard' ? 'text-[#369EAD]' : 'text-gray-400'}`}>Panel</button>
+             <button onClick={() => setView('add')} className={`text-[10px] uppercase tracking-widest font-bold ${view === 'add' ? 'text-[#369EAD]' : 'text-gray-400'}`}>+ Alumna</button>
+             <button onClick={handleExit} className="p-2 text-gray-400 hover:text-white transition-colors">
+                <LogOut size={18} />
              </button>
           </div>
         </div>
-      </header>
+      </nav>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-6 mt-6">
+      <main className="max-w-6xl mx-auto p-4 md:p-6 mt-4">
         {view === 'dashboard' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              <StatCard title="Total Alumnas" value={students.length} icon={<Users />} color="bg-[#369EAD]" />
-              <StatCard title="Asistencias Mes" value={students.reduce((acc, s) => acc + (s.attendanceCount || 0), 0)} icon={<Calendar />} color="bg-[#1A3A3E]" />
-              <StatCard title="Estado Datos" value="Sincronizado" icon={<CheckCircle />} color="bg-[#C5A059]" />
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <StatCard title="Alumnas" value={students.length} icon={<Users />} color="bg-[#369EAD]" />
+              <StatCard title="Asistencias" value={students.reduce((acc, s) => acc + (s.attendanceCount || 0), 0)} icon={<Calendar />} color="bg-[#1A3A3E]" />
+              <StatCard title="Sistema" value="ONLINE" icon={<CheckCircle />} color="bg-[#C5A059]" />
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                <h2 className="font-bold text-[#1A3A3E] italic px-2">Listado de Alumnas</h2>
-              </div>
+            <div className="bg-white rounded shadow-sm overflow-hidden border border-gray-100">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 tracking-widest">
                     <tr>
-                      <th className="px-6 py-4">Nombre / Teléfono</th>
-                      <th className="px-6 py-4">Plan</th>
+                      <th className="px-6 py-4 text-brand-dark">Nombre de Alumna</th>
+                      <th className="px-6 py-4 hidden sm:table-cell">Plan</th>
                       <th className="px-6 py-4 text-center">Clases</th>
-                      <th className="px-6 py-4 text-right">Acciones</th>
+                      <th className="px-6 py-4 text-right">Asistencia</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-50">
                     {students.map((student) => (
-                      <tr key={student.id} className="hover:bg-gray-50 transition-colors group">
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-[#1A3A3E]">{student.name}</div>
-                          <div className="text-xs text-gray-400 font-sans">{student.phone || 'Sin número'}</div>
+                      <tr key={student.id} className="hover:bg-blue-50/20 transition-all">
+                        <td className="px-6 py-4 font-bold text-[#1A3A3E]">{student.name}</td>
+                        <td className="px-6 py-4 hidden sm:table-cell">
+                          <span className="px-2 py-1 bg-[#EBF5F6] text-[#369EAD] text-[10px] rounded font-bold">{student.plan}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="px-3 py-1 bg-[#EBF5F6] text-[#369EAD] text-[10px] rounded-full font-bold uppercase tracking-tight">
-                            {student.plan}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-center text-sm font-bold text-[#1A3A3E]">
-                          {student.attendanceCount || 0}
-                        </td>
+                        <td className="px-6 py-4 text-center text-sm font-bold text-[#1A3A3E]">{student.attendanceCount || 0}</td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2 md:gap-4 opacity-70 group-hover:opacity-100 transition-opacity">
-                            <button 
-                              onClick={() => markAttendance(student.id, student.attendanceCount)}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-all"
-                              title="Marcar Asistencia"
-                            >
-                              <CheckCircle className="w-5 h-5" />
-                            </button>
-                            <button 
-                              onClick={() => deleteStudent(student.id, student.name)}
-                              className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </div>
+                          <button onClick={() => markAttendance(student.id, student.attendanceCount)} className="p-2 text-green-500 hover:bg-green-50 rounded-full transition-all active:scale-90">
+                            <CheckCircle size={20} />
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {students.length === 0 && (
-                  <div className="p-20 text-center flex flex-col items-center gap-2">
-                    <Users className="w-12 h-12 text-gray-100" />
-                    <p className="text-gray-300 italic">No hay alumnas registradas todavía.</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         )}
 
         {view === 'add' && (
-          <div className="bg-white p-8 md:p-12 rounded-2xl shadow-xl max-w-xl mx-auto border-t-8 border-[#369EAD] animate-in slide-in-from-bottom-4 duration-500">
-            <h2 className="text-3xl font-bold text-[#1A3A3E] mb-8 italic">Nueva Inscripción</h2>
+          <div className="max-w-lg mx-auto bg-white p-10 rounded shadow-xl border-t-8 border-[#369EAD] animate-in slide-in-from-bottom-4 duration-500">
+            <h2 className="text-2xl font-bold text-[#1A3A3E] mb-8 italic">Nueva Inscripción</h2>
             <form onSubmit={handleAddStudent} className="space-y-6">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Nombre Completo</label>
                 <input 
                   type="text" 
                   required
-                  autoFocus
-                  className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none bg-gray-50/30 transition-all font-sans text-sm"
+                  className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none bg-gray-50/30 text-sm"
                   value={newStudent.name}
-                  onChange={e => setNewStudent({...newStudent, name: e.target.value.toUpperCase()})}
+                  onChange={e => setNewStudent({...newStudent, name: e.target.value})}
                   placeholder="EJ. MARÍA GARCÍA"
                 />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">WhatsApp</label>
                   <input 
                     type="tel"
-                    className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none bg-gray-50/30 font-sans text-sm"
+                    className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none bg-gray-50/30 text-sm"
                     value={newStudent.phone}
                     onChange={e => setNewStudent({...newStudent, phone: e.target.value})}
                     placeholder="33..."
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Plan Mensual</label>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Plan</label>
                   <select 
-                    className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none bg-gray-50/30 font-sans text-sm appearance-none cursor-pointer"
+                    className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none bg-gray-50/30 text-sm"
                     value={newStudent.plan}
                     onChange={e => setNewStudent({...newStudent, plan: e.target.value})}
                   >
@@ -312,25 +281,21 @@ export default function App() {
                     <option>2 clases x sem</option>
                     <option>3 clases x sem</option>
                     <option>4 clases x sem</option>
-                    <option>Clase suelta</option>
                   </select>
                 </div>
               </div>
-              <div className="pt-4">
-                <button 
-                  type="submit"
-                  className="w-full bg-[#1A3A3E] text-white py-5 rounded-xl font-bold uppercase tracking-[0.2em] text-[11px] hover:bg-[#369EAD] transition-all shadow-lg"
-                >
-                  Registrar Alumna
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setView('dashboard')}
-                  className="w-full mt-4 text-gray-400 text-[10px] uppercase tracking-widest font-bold hover:text-gray-600 transition-colors"
-                >
-                  Cancelar y volver al panel
-                </button>
-              </div>
+              <button 
+                type="submit"
+                disabled={saving}
+                className="w-full bg-[#1A3A3E] text-white py-5 rounded-lg font-bold uppercase tracking-[0.2em] text-[10px] hover:bg-[#369EAD] transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="animate-spin w-4 h-4" />
+                    Guardando...
+                  </>
+                ) : "Confirmar Registro"}
+              </button>
             </form>
           </div>
         )}
@@ -341,13 +306,13 @@ export default function App() {
 
 function StatCard({ title, value, icon, color }) {
   return (
-    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-6 group hover:shadow-md transition-all">
-      <div className={`${color} p-4 rounded-xl text-white shadow-inner transition-transform group-hover:scale-110`}>
-        {React.cloneElement(icon, { size: 28 })}
+    <div className="bg-white p-6 rounded shadow-sm border border-gray-100 flex items-center gap-6">
+      <div className={`${color} p-4 rounded text-white shadow-inner`}>
+        {React.cloneElement(icon, { size: 24 })}
       </div>
       <div>
-        <p className="text-[10px] text-gray-400 uppercase font-black tracking-[0.2em] mb-1">{title}</p>
-        <p className="text-2xl md:text-3xl font-bold text-[#1A3A3E]">{value}</p>
+        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">{title}</p>
+        <p className="text-2xl font-bold text-[#1A3A3E]">{value}</p>
       </div>
     </div>
   );

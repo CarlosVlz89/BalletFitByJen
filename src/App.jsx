@@ -33,12 +33,12 @@ import {
 // 1. CONFIGURACIÓN DE FIREBASE (Tus llaves reales)
 // =========================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyBhGETYAZ4Vp6asoky3e9TGt80-wFiAqiE",
-  authDomain: "balletfitbyjen-6b36a.firebaseapp.com",
-  projectId: "balletfitbyjen-6b36a",
-  storageBucket: "balletfitbyjen-6b36a.firebasestorage.app",
-  messagingSenderId: "561979345720",
-  appId: "1:561979345720:web:d656205cbba706c5f8cfcd"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // --- INICIALIZACIÓN ---

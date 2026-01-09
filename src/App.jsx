@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { initializeApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app'; // Solo una vez
 import { 
   getFirestore, 
   collection, 
@@ -23,21 +23,14 @@ import {
   CheckCircle, 
   Trash2, 
   LogOut,
-  AlertCircle,
   Lock,
   Loader2,
   WifiOff
 } from 'lucide-react';
 
 // =========================================================
-// 1. PEGA AQUÍ TUS LLAVES DE FIREBASE (Configuración del Proyecto)
+// 1. CONFIGURACIÓN DE FIREBASE (Aquí pones tus llaves)
 // =========================================================
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBhGETYAZ4Vp6asoky3e9TGt80-wFiAqiE",
   authDomain: "balletfitbyjen-6b36a.firebaseapp.com",
@@ -47,30 +40,11 @@ const firebaseConfig = {
   appId: "1:561979345720:web:d656205cbba706c5f8cfcd"
 };
 
-// Initialize Firebase
+// --- INICIALIZACIÓN ÚNICA ---
 const app = initializeApp(firebaseConfig);
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
-// --- INICIALIZACIÓN ---
-let db, auth;
+const db = getFirestore(app);
+const auth = getAuth(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'ballet-fit-estudio';
-
-try {
-  // Prioriza la configuración del sistema, si no, usa la tuya
-  const envConfig = typeof __firebase_config !== 'undefined' 
-    ? (typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config)
-    : myConfig;
-    
-  if (envConfig && envConfig.apiKey && envConfig.apiKey !== "TU_API_KEY_AQUÍ") {
-    const app = initializeApp(envConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-  }
-} catch (e) {
-  console.error("Error al conectar con Firebase:", e);
-}
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -83,9 +57,8 @@ export default function App() {
   const [error, setError] = useState(null);
   const [newStudent, setNewStudent] = useState({ name: '', phone: '', plan: '2 clases x sem' });
 
-  // Autenticación silenciosa
+  // Autenticación silenciosa para conectar con Firestore
   useEffect(() => {
-    if (!auth) return;
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -104,12 +77,11 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Escucha de datos
+  // Escucha de datos en tiempo real
   useEffect(() => {
     if (!user || !db || !isAuthenticated) return;
 
     setLoading(true);
-    // Ruta estricta para persistencia
     const studentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'students');
     
     const unsubscribe = onSnapshot(studentsRef, 
@@ -122,7 +94,7 @@ export default function App() {
       },
       (err) => {
         console.error("Error de lectura:", err);
-        setError("Error de permisos: Verifica que Firestore esté en 'Modo de Prueba'.");
+        setError("Error de permisos: Revisa que Firestore esté en 'Modo de Prueba'.");
         setLoading(false);
       }
     );
@@ -131,7 +103,7 @@ export default function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (password === 'ballet2026') { // Esta es la clave del portal
+    if (password === 'ballet2026') {
       setIsAuthenticated(true);
       setError(null);
     } else {
@@ -182,19 +154,19 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50 font-serif p-4">
+      <div className="flex h-screen items-center justify-center bg-gray-50 font-serif p-4 text-brand-dark">
         <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md border-t-8 border-[#369EAD]">
           <div className="text-center mb-8">
             <div className="bg-[#EBF5F6] w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="text-[#369EAD] w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-bold text-[#1A3A3E] italic">Portal de Alumnas</h2>
+            <h2 className="text-2xl font-bold italic">Portal de Alumnas</h2>
           </div>
           <form onSubmit={handleLogin} className="space-y-6">
             <input 
               type="password" 
               required
-              className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-center text-xl tracking-widest"
+              className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-center text-xl tracking-widest bg-transparent"
               placeholder="Clave"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -213,10 +185,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-serif pb-20">
+    <div className="min-h-screen bg-gray-50 font-serif pb-20 text-brand-dark">
       <nav className="bg-[#1A3A3E] text-white p-4 shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center px-2">
-          <h1 className="font-bold text-lg tracking-tight">Admin Ballet Fit</h1>
+          <h1 className="font-bold text-lg tracking-tight italic">Admin Ballet Fit</h1>
           <div className="flex items-center gap-6">
              <button onClick={() => setView('dashboard')} className={`text-[10px] uppercase font-bold ${view === 'dashboard' ? 'text-[#369EAD]' : 'text-gray-400'}`}>Panel</button>
              <button onClick={() => setView('add')} className={`text-[10px] uppercase font-bold ${view === 'add' ? 'text-[#369EAD]' : 'text-gray-400'}`}>+ Registro</button>
@@ -252,7 +224,7 @@ export default function App() {
                 <tbody className="divide-y divide-gray-50">
                   {students.map((student) => (
                     <tr key={student.id} className="hover:bg-blue-50/20">
-                      <td className="px-6 py-4 font-bold text-[#1A3A3E]">{student.name}</td>
+                      <td className="px-6 py-4 font-bold">{student.name}</td>
                       <td className="px-6 py-4 text-center text-sm">{student.attendanceCount || 0}</td>
                       <td className="px-6 py-4 text-right pr-8">
                         <button onClick={() => markAttendance(student.id, student.attendanceCount)} className="p-2 text-green-500 hover:bg-green-100 rounded-full transition-all">
@@ -263,7 +235,7 @@ export default function App() {
                   ))}
                 </tbody>
               </table>
-              {loading && <div className="p-10 text-center text-[#369EAD] animate-pulse italic">Cargando...</div>}
+              {loading && <div className="p-10 text-center text-[#369EAD] animate-pulse italic">Cargando datos...</div>}
             </div>
           </div>
         )}
@@ -275,7 +247,7 @@ export default function App() {
               <input 
                 type="text" 
                 required
-                className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-sm"
+                className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-sm bg-gray-50/50"
                 value={newStudent.name}
                 onChange={e => setNewStudent({...newStudent, name: e.target.value})}
                 placeholder="NOMBRE COMPLETO"
@@ -283,13 +255,13 @@ export default function App() {
               <div className="grid grid-cols-2 gap-4">
                 <input 
                   type="tel"
-                  className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-sm"
+                  className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-sm bg-gray-50/50"
                   value={newStudent.phone}
                   onChange={e => setNewStudent({...newStudent, phone: e.target.value})}
                   placeholder="WHATSAPP"
                 />
                 <select 
-                  className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-sm"
+                  className="w-full p-4 border-b-2 border-gray-100 focus:border-[#369EAD] outline-none text-sm bg-gray-50/50"
                   value={newStudent.plan}
                   onChange={e => setNewStudent({...newStudent, plan: e.target.value})}
                 >

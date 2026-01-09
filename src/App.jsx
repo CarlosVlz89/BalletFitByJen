@@ -93,7 +93,7 @@ export default function App() {
 
   const showNotification = (msg, type = 'success') => {
     setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 3000);
+    setTimeout(() => setNotification(null), 4000);
   };
 
   useEffect(() => {
@@ -183,13 +183,14 @@ export default function App() {
 
   return (
     <div className="font-serif text-[#1A3A3E] antialiased">
+      {/* MEJORA: Aumentamos z-index de notificación a 150 para que flote sobre los modales */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-[100] px-6 py-4 rounded-sm shadow-xl flex items-center gap-3 animate-in slide-in-from-right-4 duration-300 ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-[#1A3A3E] text-white'}`}>
+        <div className={`fixed top-4 right-4 z-[150] px-6 py-4 rounded-sm shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-4 duration-300 border-l-4 ${notification.type === 'error' ? 'bg-red-500 text-white border-red-700' : 'bg-[#1A3A3E] text-white border-[#369EAD]'}`}>
           {notification.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
           <span className="text-[10px] font-bold uppercase tracking-widest">{notification.msg}</span>
         </div>
       )}
-      {view === 'login' && <LoginView onLogin={handleLogin} />}
+      {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
       {view === 'student' && <StudentDashboard user={user} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
       {view === 'admin' && <AdminDashboard students={students} db={db} onLogout={handleLogout} showNotification={showNotification} />}
     </div>
@@ -230,7 +231,7 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-20">
       <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex justify-between items-center px-2">
           <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
           <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] uppercase font-bold flex items-center gap-2"><span>Salir</span><LogOut size={16} /></button>
         </div>
@@ -349,65 +350,85 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
     <div className="min-h-screen bg-gray-50 pb-20">
       <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
         <span className="text-xl font-serif font-black">BF ADMIN</span>
-        <button onClick={onLogout} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100">Cerrar Sesión</button>
+        <button onClick={onLogout} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        <div className="flex justify-between items-center mb-10">
-          <h2 className="text-4xl font-serif italic font-bold">Gestión de Alumnas</h2>
+      <div className="max-w-7xl mx-auto px-4 md:px-6 py-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+          <h2 className="text-3xl md:text-4xl font-serif italic font-bold">Gestión de Alumnas</h2>
           <Button onClick={() => setShowAddForm(true)} className="!py-4 shadow-xl"><UserPlus size={18} /> Registrar Alumna</Button>
         </div>
 
         {showAddForm && (
           <div className="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300">
-              <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500"><X size={28} /></button>
-              <h3 className="text-3xl font-serif italic mb-8">Nueva Inscripción</h3>
+            <div className="bg-white w-full max-w-md p-8 md:p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300">
+              <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors"><X size={28} /></button>
+              <h3 className="text-2xl md:text-3xl font-serif italic mb-8 border-b border-gray-100 pb-4">Nueva Inscripción</h3>
               <form onSubmit={handleRegister} className="space-y-6">
-                <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] uppercase text-sm" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
-                <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] uppercase text-sm" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
-                <select className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] text-sm" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
+                <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] uppercase text-sm outline-none transition-all" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+                <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] uppercase text-sm outline-none transition-all" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                <select className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] text-sm outline-none cursor-pointer" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
                   <option>1 clase x sem</option>
                   <option>2 clases x sem</option>
                   <option>3 clases x sem</option>
                   <option>4 clases x sem</option>
                 </select>
-                <Button disabled={saving} className="w-full !py-5">{saving ? <Loader2 className="animate-spin" /> : "Guardar en la Nube"}</Button>
+                <Button disabled={saving} className="w-full !py-5 font-bold tracking-widest">{saving ? <Loader2 className="animate-spin" /> : "Guardar en la Nube"}</Button>
               </form>
             </div>
           </div>
         )}
 
         <div className="bg-white rounded-sm shadow-xl overflow-hidden border border-gray-100">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 tracking-widest font-bold">
-              <tr>
-                <th className="px-8 py-6">Alumna / ID</th>
-                <th className="px-8 py-6 text-center">Créditos Semanales</th>
-                <th className="px-8 py-6 text-right pr-12">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {students.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50 transition-all">
-                  <td className="px-8 py-6">
-                    <div className="font-bold text-[#1A3A3E] text-lg font-serif italic">{s.name}</div>
-                    <div className="text-[10px] text-gray-400 tracking-widest uppercase">{s.id}</div>
-                  </td>
-                  <td className="px-8 py-6 text-center">
-                    <span className={`text-xl font-bold font-serif ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>
-                    <span className="text-gray-300 text-sm"> / {s.maxCredits}</span>
-                  </td>
-                  <td className="px-8 py-6 text-right pr-10">
-                    <div className="flex justify-end gap-4">
-                      <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-3 text-[#C5A059] hover:bg-amber-50 rounded-full transition-all"><Clock size={20}/></button>
-                      <button onClick={() => deleteStudent(s)} className="p-3 text-red-200 hover:text-red-600 transition-all"><Trash2 size={20}/></button>
-                    </div>
-                  </td>
+          <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
+             <h3 className="font-bold italic text-brand-dark">Listado Maestro de Alumnas</h3>
+             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{students.length} Registros</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 tracking-widest font-bold">
+                <tr>
+                  <th className="px-8 py-6">ID / Nombre</th>
+                  <th className="px-8 py-6 text-center">Créditos</th>
+                  <th className="px-8 py-6 text-right pr-12">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {students.map((s) => (
+                  <tr key={s.id} className="hover:bg-gray-50 transition-all group">
+                    {/* MEJORA: Diseño horizontal de ID y Nombre */}
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                        <span className="text-[11px] font-black text-[#369EAD] bg-[#EBF5F6] px-2 py-1 rounded-sm border border-[#369EAD]/10 uppercase tracking-tighter min-w-[70px] text-center">
+                          {s.id}
+                        </span>
+                        <div className="font-bold text-[#1A3A3E] text-base font-serif italic">{s.name}</div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-center">
+                      <div className="flex items-baseline justify-center gap-1">
+                        <span className={`text-xl font-bold font-serif ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>
+                        <span className="text-gray-300 text-sm italic"> / {s.maxCredits}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-right pr-10">
+                      <div className="flex justify-end gap-2 md:gap-4">
+                        <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-3 text-[#C5A059] hover:bg-amber-50 rounded-full transition-all" title="Reiniciar Semana">
+                          <Clock size={20}/>
+                        </button>
+                        <button onClick={() => deleteStudent(s)} className="p-3 text-red-200 hover:text-red-600 hover:bg-red-50 rounded-full transition-all" title="Eliminar Alumna">
+                          <Trash2 size={20}/>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {students.length === 0 && (
+              <div className="p-20 text-center text-gray-300 italic">No hay alumnas registradas todavía.</div>
+            )}
+          </div>
         </div>
       </div>
     </div>

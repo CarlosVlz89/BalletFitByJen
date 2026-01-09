@@ -11,7 +11,9 @@ import {
   deleteDoc,
   increment,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  query,
+  where
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -37,7 +39,10 @@ import {
   ToggleRight,
   DollarSign,
   TrendingUp,
-  Info
+  Info,
+  Trophy,
+  Activity,
+  Heart
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -73,6 +78,15 @@ const PRICES = [
   { plan: "2 clases a la semana", price: 620 },
   { plan: "1 clase a la semana", price: 450 },
   { plan: "Clase suelta", price: 150 },
+];
+
+const MOTIVATIONAL_QUOTES = [
+  "¡Qué gusto verte de nuevo!",
+  "¡Lista para brillar en el estudio!",
+  "Tu disciplina es tu mayor fuerza.",
+  "Un día más cerca de tus objetivos.",
+  "¡A darle con todo hoy!",
+  "La elegancia se entrena con cada paso."
 ];
 
 // --- COMPONENTES UI ---
@@ -113,6 +127,10 @@ const getHoursUntilClass = (dayIdx, timeStr) => {
   return diffMs / (1000 * 60 * 60);
 };
 
+const getCurrentMonthName = () => {
+  return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date()).toUpperCase();
+};
+
 export default function App() {
   const [view, setView] = useState('login'); 
   const [user, setUser] = useState(null);
@@ -121,6 +139,7 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [randomQuote, setRandomQuote] = useState("");
 
   const showNotification = (msg, type = 'success') => {
     setNotification({ msg, type });
@@ -128,6 +147,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
     const startApp = async () => {
       try { await signInAnonymously(auth); } catch (err) { console.error("Error Auth:", err); }
 
@@ -174,6 +194,7 @@ export default function App() {
 
     if (found) {
       setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
+      setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
       setView('student');
     } else {
       setError('Datos incorrectos. Verifica ID y nombre.');
@@ -189,7 +210,11 @@ export default function App() {
     try {
       const studentRef = doc(db, 'alumnas', user.id);
       const sessionRef = doc(db, 'sesiones', sessionId);
-      await updateDoc(studentRef, { credits: increment(-1), history: arrayUnion(sessionId) });
+      await updateDoc(studentRef, { 
+        credits: increment(-1), 
+        history: arrayUnion(sessionId),
+        totalAttendance: increment(1) // Incrementar historial histórico
+      });
       await setDoc(sessionRef, { booked: increment(1) }, { merge: true });
       showNotification('¡Clase reservada!');
     } catch (err) { showNotification('Error al reservar', 'error'); }
@@ -206,7 +231,11 @@ export default function App() {
       const studentRef = doc(db, 'alumnas', user.id);
       const sessionRef = doc(db, 'sesiones', sessionId);
       if (!isLateCancellation) {
-        await updateDoc(studentRef, { credits: increment(1), history: arrayRemove(sessionId) });
+        await updateDoc(studentRef, { 
+          credits: increment(1), 
+          history: arrayRemove(sessionId),
+          totalAttendance: increment(-1) // Descontamos del histórico si cancela a tiempo
+        });
       } else {
         await updateDoc(studentRef, { history: arrayRemove(sessionId) });
       }
@@ -221,7 +250,7 @@ export default function App() {
     setError(null);
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse bg-white italic">Conectando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse bg-white italic">Sincronizando...</div>;
 
   return (
     <div className="font-serif text-[#1A3A3E] antialiased bg-[#F8FAFC] min-h-screen">
@@ -232,7 +261,7 @@ export default function App() {
         </div>
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
-      {view === 'student' && <StudentDashboard user={user} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
+      {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
       {view === 'admin' && <AdminDashboard students={students} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
     </div>
   );
@@ -265,40 +294,75 @@ const LoginView = ({ onLogin, error }) => {
   );
 };
 
-const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLogout }) => {
+const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout }) => {
   const myHistory = user.history || [];
   const mySessions = sessions.filter(s => myHistory.includes(s.id));
   const nextClass = mySessions.length > 0 ? mySessions[0] : null;
+  const currentMonth = getCurrentMonthName();
 
   return (
     <div className="pb-20">
       <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-2">
           <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
-          <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] uppercase font-bold flex items-center gap-2"><span>Salir</span><LogOut size={16} /></button>
+          <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] uppercase font-bold flex items-center gap-2 tracking-widest"><span>Salir</span><LogOut size={16} /></button>
         </div>
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
+        {/* SALUDO PERSONALIZADO */}
+        <div className="mb-10 text-center md:text-left">
+           <h2 className="text-4xl md:text-5xl font-serif italic text-brand-dark font-bold mb-2">¡Hola, {user.firstName}!</h2>
+           <p className="text-brand-teal text-sm md:text-base uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
+             <Heart size={16} fill="#369EAD" /> {quote}
+           </p>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          <Card className="md:col-span-2">
-            <h2 className="text-3xl font-serif text-[#1A3A3E] mb-2 italic">Mi Resumen Semanal</h2>
-            <div className="bg-[#EBF5F6] px-8 py-5 rounded-sm border border-[#369EAD]/10 inline-block mt-4">
-              <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-2">Clases disponibles</span>
-              <div className="flex items-baseline gap-2 font-serif">
-                <span className={`text-5xl font-bold ${user.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{user.credits}</span>
-                <span className="text-gray-300 text-xl">/ {user.maxCredits}</span>
+          <Card className="md:col-span-2 flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h3 className="text-2xl font-serif text-[#1A3A3E] italic">Resumen de {currentMonth}</h3>
+                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Tus métricas de disciplina</p>
+              </div>
+              <div className="bg-brand-tealLight p-3 rounded-full text-brand-teal">
+                <Activity size={24} />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#EBF5F6] px-6 py-4 rounded-sm border border-brand-teal/10">
+                <span className="block text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-1">Clases del Mes</span>
+                <div className="flex items-baseline gap-1 font-serif">
+                  <span className={`text-4xl font-bold ${user.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{user.credits}</span>
+                  <span className="text-gray-300 text-lg">/ {user.maxCredits}</span>
+                </div>
+              </div>
+              <div className="bg-brand-dark px-6 py-4 rounded-sm border border-brand-gold/20 text-white">
+                <span className="block text-[9px] uppercase tracking-widest text-brand-gold font-bold mb-1 text-opacity-80">Total Histórico</span>
+                <div className="flex items-baseline gap-1 font-serif">
+                  <span className="text-4xl font-bold text-brand-gold">{user.totalAttendance || 0}</span>
+                  <span className="text-brand-gold text-xs text-opacity-50 ml-1">Sesiones</span>
+                </div>
               </div>
             </div>
           </Card>
-          <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center">
-             <Calendar className="text-[#C5A059] mb-3" size={32} />
-             <h3 className="text-[10px] uppercase tracking-widest text-[#C5A059] mb-2">Próxima Clase</h3>
-             {nextClass ? <p className="text-xl italic font-bold">{nextClass.day} {nextClass.time}</p> : <p className="opacity-40 italic text-sm">Sin reservas</p>}
+
+          <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center shadow-xl relative overflow-hidden group">
+             <div className="absolute top-0 right-0 p-2 opacity-5"><Calendar size={120} /></div>
+             <Calendar className="text-brand-gold mb-3 animate-pulse" size={32} />
+             <h3 className="text-[10px] uppercase tracking-widest text-brand-gold mb-2 font-black">Próximo Entrenamiento</h3>
+             {nextClass ? (
+                <div className="animate-in fade-in duration-500">
+                  <p className="text-2xl italic font-bold text-brand-gold">{nextClass.day}</p>
+                  <p className="text-4xl font-bold my-1 tracking-tighter">{nextClass.time}</p>
+                  <p className="text-[9px] uppercase opacity-40 tracking-widest">Maestra: {nextClass.teacher}</p>
+                </div>
+             ) : <p className="opacity-40 italic text-sm">Sin clases pendientes</p>}
           </Card>
         </div>
 
-        <h3 className="text-xl mb-8 font-serif italic border-l-4 border-[#369EAD] pl-6">Programación de Clases</h3>
+        <h3 className="text-xl mb-8 font-serif italic border-l-4 border-[#369EAD] pl-6">Cartelera de Clases</h3>
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {sessions.map((s) => {
             const isBooked = myHistory.includes(s.id);
@@ -307,20 +371,20 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
             const isClosed = sessionState.isClosed;
             const canBook = user.credits > 0 && !isBooked && !isFull && !isClosed;
             return (
-              <div key={s.id} className={`p-8 rounded-sm border transition-all ${isBooked ? 'bg-[#EBF5F6] border-[#369EAD]' : isClosed ? 'bg-gray-50 opacity-60 border-gray-200' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
+              <div key={s.id} className={`p-8 rounded-sm border transition-all duration-300 ${isBooked ? 'bg-[#EBF5F6] border-[#369EAD] ring-1 ring-brand-teal/20' : isClosed ? 'bg-gray-50 opacity-60 border-gray-200' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
                 <div className="mb-6">
                   <div className="flex justify-between items-start">
                     <span className="text-[10px] uppercase font-black opacity-40">{s.day}</span>
-                    {isClosed && <span className="bg-red-100 text-red-600 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Cerrado</span>}
+                    {isClosed && <span className="bg-red-100 text-red-600 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Feriado</span>}
                   </div>
                   <h4 className="text-3xl font-serif italic font-bold">{s.time}</h4>
-                  <p className="text-[10px] text-[#369EAD] font-bold uppercase tracking-widest mt-1">Maestra: {s.teacher}</p>
+                  <p className="text-[10px] text-[#369EAD] font-bold uppercase tracking-widest mt-1">{s.teacher}</p>
                 </div>
                 <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-50">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase"><Users size={12} className="inline mr-1" />{sessionState.booked || 0}/{s.spots}</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1"><Users size={12} /> {sessionState.booked || 0}/{s.spots}</span>
                   {isBooked ? 
-                    <button onClick={() => onCancel(s.id)} className="text-[10px] text-red-400 font-bold uppercase underline underline-offset-8">Cancelar</button> :
-                    <Button onClick={() => onBook(s.id)} disabled={!canBook} className="!px-4 !py-2 !text-[9px]">{isClosed ? 'Feriado' : isFull ? 'Lleno' : 'Reservar'}</Button>
+                    <button onClick={() => onCancel(s.id)} className="text-[10px] text-red-400 font-bold uppercase underline underline-offset-8 decoration-red-100">Cancelar</button> :
+                    <Button onClick={() => onBook(s.id)} disabled={!canBook} className="!px-4 !py-2 !text-[9px]">{isClosed ? 'Cerrado' : isFull ? 'Lleno' : 'Reservar'}</Button>
                   }
                 </div>
               </div>
@@ -336,8 +400,9 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStudent, setNewStudent] = useState({ id: '', name: '', plan: '2 clases x sem' });
   const [saving, setSaving] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(null); // ID de la alumna
+  const [showPaymentModal, setShowPaymentModal] = useState(null); 
   const [paymentAmount, setPaymentAmount] = useState(0);
+  const currentMonth = getCurrentMonthName();
 
   const totalIncome = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
 
@@ -355,14 +420,15 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
       const docRef = doc(db, 'alumnas', cleanId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        showNotification(`ID ${cleanId} ya usado por ${docSnap.data().name}`, 'error');
+        showNotification(`ID ya usado por ${docSnap.data().name}`, 'error');
         setSaving(false); return;
       }
       const max = parseInt(newStudent.plan.split(' ')[0]) || 2;
       await setDoc(docRef, {
         id: cleanId, name: newStudent.name.trim().toUpperCase(),
         plan: newStudent.plan, maxCredits: max, credits: max,
-        history: [], monthlyPayment: 0, registrationDate: new Date().toISOString()
+        history: [], monthlyPayment: 0, totalAttendance: 0,
+        registrationDate: new Date().toISOString()
       });
       showNotification('Alumna registrada');
       setShowAddForm(false);
@@ -377,26 +443,14 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
       await updateDoc(doc(db, 'alumnas', showPaymentModal), {
         monthlyPayment: parseFloat(paymentAmount)
       });
-      showNotification('Pago registrado con éxito');
+      showNotification('Pago registrado');
       setShowPaymentModal(null);
       setPaymentAmount(0);
     } catch (err) { console.error(err); }
   };
 
-  const deleteStudent = async (student) => {
-    if (window.confirm(`¿BORRAR A ${student.name}?`)) {
-      if (student.history?.length > 0) {
-        for (const sessionId of student.history) {
-          await updateDoc(doc(db, 'sesiones', sessionId), { booked: increment(-1) });
-        }
-      }
-      await deleteDoc(doc(db, 'alumnas', student.id));
-      showNotification('Alumna eliminada');
-    }
-  };
-
   const resetCredits = async (id, max) => {
-    if (window.confirm("¿Reiniciar semana?")) {
+    if (window.confirm("¿Reiniciar semana? Se limpiarán los créditos pero el historial total se mantiene.")) {
       await updateDoc(doc(db, 'alumnas', id), { credits: max, history: [] });
     }
   };
@@ -404,64 +458,62 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
   return (
     <div className="pb-20">
       <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
-        <span className="text-xl font-serif font-black tracking-tight">BF ADMIN PORTAL</span>
-        <button onClick={onLogout} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100 tracking-[0.2em]">Cerrar Sesión</button>
+        <div className="flex items-center gap-3">
+          <span className="text-xl font-serif font-black tracking-tight">BF ADMIN</span>
+          <span className="bg-brand-gold text-brand-dark text-[9px] px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
+        </div>
+        <button onClick={onLogout} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
-        {/* RESUMEN FINANCIERO Y ESTADÍSTICO */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-brand-dark !border-[#C5A059] text-white flex items-center gap-6">
-            <div className="p-4 bg-[#C5A059] rounded-sm text-brand-dark"><DollarSign size={28} /></div>
+          <Card className="bg-brand-dark !border-[#C5A059] text-white flex items-center gap-6 group">
+            <div className="p-4 bg-[#C5A059] rounded-sm text-brand-dark transition-transform group-hover:rotate-6"><DollarSign size={28} /></div>
             <div>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Ingresos del Mes</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Caja {currentMonth}</p>
               <p className="text-3xl font-bold font-serif text-[#C5A059]">${totalIncome.toLocaleString()}</p>
             </div>
           </Card>
-          <Card className="flex items-center gap-6">
-            <div className="p-4 bg-brand-tealLight rounded-sm text-brand-teal"><TrendingUp size={28} /></div>
+          <Card className="flex items-center gap-6 border-brand-teal group">
+            <div className="p-4 bg-brand-teal text-white rounded-sm transition-transform group-hover:scale-110"><Trophy size={28} /></div>
             <div>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Asistencias Activas</p>
-              <p className="text-3xl font-bold font-serif">{Object.values(sessionsData).reduce((a,b) => a + (b.booked || 0), 0)}</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Impacto Total</p>
+              <p className="text-3xl font-bold font-serif">{students.reduce((a,b) => a + (b.totalAttendance || 0), 0)} clases dadas</p>
             </div>
           </Card>
           <Card className="bg-[#EBF5F6] border-brand-teal flex items-center gap-6">
             <div className="p-4 bg-brand-teal rounded-sm text-white"><Users size={28} /></div>
             <div>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Alumnas Inscritas</p>
-              <p className="text-3xl font-bold font-serif text-brand-teal">{students.length}</p>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Comunidad</p>
+              <p className="text-3xl font-bold font-serif text-brand-teal">{students.length} Alumnas</p>
             </div>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* TABLA DE PRECIOS - REFERENCIA PARA JENNY */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            <Card className="bg-white border-brand-gold overflow-hidden">
-              <h3 className="text-lg font-serif italic font-bold mb-4 flex items-center gap-2 text-brand-dark">
-                <Info size={18} className="text-[#C5A059]" /> Tarifas 2026
-              </h3>
+            <Card className="bg-white border-brand-gold">
+              <h3 className="text-lg font-serif italic font-bold mb-4 flex items-center gap-2 text-brand-dark"><Info size={18} className="text-brand-gold" /> Tarifario</h3>
               <div className="space-y-3">
                 {PRICES.map((p, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-xs border-b border-gray-50 pb-2">
-                    <span className="text-gray-500 uppercase tracking-tighter">{p.plan}</span>
-                    <span className="font-bold text-brand-teal font-serif">${p.price}</span>
+                  <div key={idx} className="flex justify-between items-center text-[11px] border-b border-gray-50 pb-2">
+                    <span className="text-gray-400 uppercase font-bold">{p.plan}</span>
+                    <span className="font-bold text-brand-teal">${p.price}</span>
                   </div>
                 ))}
               </div>
             </Card>
 
-            {/* GESTIÓN DE FERIADOS */}
-            <Card className="bg-white">
-              <h3 className="text-lg font-serif italic font-bold mb-4">Gestión de Clases</h3>
+            <Card className="bg-white border-brand-teal">
+              <h3 className="text-lg font-serif italic font-bold mb-4">Estatus Clases</h3>
               <div className="space-y-4">
                 {WEEKLY_SCHEDULE.map(s => {
                   const isClosed = sessionsData[s.id]?.isClosed || false;
                   return (
                     <div key={s.id} className="flex justify-between items-center text-xs">
-                      <span className="font-bold opacity-60 uppercase tracking-tighter">{s.day} {s.time}</span>
-                      <button onClick={() => toggleSessionStatus(s.id, isClosed)} className="text-[#369EAD]">
-                        {isClosed ? <ToggleLeft size={32} className="text-red-300" /> : <ToggleRight size={32} />}
+                      <span className="font-bold opacity-60 uppercase tracking-tighter">{s.day}</span>
+                      <button onClick={() => toggleSessionStatus(s.id, isClosed)}>
+                        {isClosed ? <ToggleLeft size={30} className="text-red-300" /> : <ToggleRight size={30} className="text-brand-teal" />}
                       </button>
                     </div>
                   );
@@ -470,47 +522,48 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
             </Card>
           </div>
 
-          {/* LISTADO DE ALUMNAS */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden">
               <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
-                <h3 className="font-bold italic text-brand-dark">Directorio y Finanzas</h3>
-                <Button onClick={() => setShowAddForm(true)} className="!px-4 !py-2 !text-[9px]">Registrar Alumna</Button>
+                <h3 className="font-bold italic text-brand-dark">Control de Alumnas e Historial</h3>
+                <Button onClick={() => setShowAddForm(true)} className="!px-4 !py-2 !text-[9px]">Registrar</Button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 tracking-widest font-black">
                     <tr>
-                      <th className="px-6 py-5">ID / Alumna</th>
+                      <th className="px-6 py-5">Identificación / Nombre</th>
                       <th className="px-6 py-5 text-center">Créditos</th>
-                      <th className="px-6 py-5 text-center">Pago Mes</th>
-                      <th className="px-6 py-5 text-right pr-8">Control</th>
+                      <th className="px-6 py-5 text-center">Histórico</th>
+                      <th className="px-6 py-5 text-center">Pago {currentMonth}</th>
+                      <th className="px-6 py-5 text-right pr-10">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {students.map((s) => (
-                      <tr key={s.id} className="hover:bg-gray-50 transition-all text-sm">
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col md:flex-row md:items-center gap-2">
-                            <span className="text-[10px] font-black text-brand-teal bg-[#EBF5F6] px-2 py-0.5 rounded-sm border border-brand-teal/10">{s.id}</span>
-                            <div className="font-bold font-serif italic">{s.name}</div>
+                      <tr key={s.id} className="hover:bg-gray-50 transition-all text-sm group">
+                        <td className="px-6 py-5">
+                          <div className="flex flex-col md:flex-row md:items-center gap-3">
+                            <span className="text-[10px] font-black text-brand-teal bg-[#EBF5F6] px-2 py-0.5 rounded-sm border border-brand-teal/10 w-fit">{s.id}</span>
+                            <div className="font-bold font-serif italic text-brand-dark">{s.name}</div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`font-bold font-serif ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>
+                        <td className="px-6 py-5 text-center font-serif">
+                          <span className={`font-bold ${s.credits === 0 ? 'text-red-400' : 'text-brand-teal'}`}>{s.credits}</span>
                           <span className="text-gray-300 text-xs italic"> / {s.maxCredits}</span>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <button 
-                            onClick={() => { setShowPaymentModal(s.id); setPaymentAmount(s.monthlyPayment || 0); }}
-                            className={`font-bold font-serif px-3 py-1 rounded transition-colors ${s.monthlyPayment > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}
-                          >
+                        <td className="px-6 py-5 text-center">
+                          <span className="text-xs bg-brand-dark text-white px-2 py-1 rounded-sm font-bold shadow-sm">{s.totalAttendance || 0}</span>
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <button onClick={() => { setShowPaymentModal(s.id); setPaymentAmount(s.monthlyPayment || 0); }}
+                            className={`font-bold font-serif px-3 py-1 rounded text-xs transition-colors ${s.monthlyPayment > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
                             ${s.monthlyPayment || 0}
                           </button>
                         </td>
-                        <td className="px-6 py-4 text-right pr-6 space-x-2">
-                          <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-2 text-[#C5A059] hover:bg-amber-50 rounded-full"><Clock size={16}/></button>
-                          <button onClick={() => deleteStudent(s)} className="p-2 text-red-200 hover:text-red-600 transition-all"><Trash2 size={16}/></button>
+                        <td className="px-6 py-5 text-right pr-8 space-x-1">
+                          <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-2 text-brand-gold hover:bg-amber-50 rounded-full transition-transform hover:scale-110"><Clock size={16}/></button>
+                          <button onClick={() => { if(window.confirm(`¿Borrar permanentemente a ${s.name}?`)) deleteDoc(doc(db, 'alumnas', s.id)) }} className="p-2 text-red-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
                         </td>
                       </tr>
                     ))}
@@ -522,37 +575,35 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
         </div>
       </div>
 
-      {/* MODAL REGISTRO ALUMNA */}
+      {/* MODALES IGUAL QUE ANTES PERO CON ESTILOS PULIDOS */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-brand-teal animate-in zoom-in duration-300">
-            <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors"><X size={28} /></button>
+        <div className="fixed inset-0 bg-brand-dark/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-brand-teal animate-in zoom-in">
+            <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500"><X size={28} /></button>
             <h3 className="text-2xl font-serif italic mb-6 border-b pb-2">Nueva Alumna</h3>
             <form onSubmit={handleRegister} className="space-y-6">
-              <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm font-sans" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
-              <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm font-sans" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
-              <select className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-sm font-sans" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
+              <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+              <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+              <select className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-sm" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
                 {PRICES.slice(0, 4).map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
               </select>
-              <Button disabled={saving} className="w-full !py-4 font-bold tracking-widest">{saving ? <Loader2 className="animate-spin" /> : "Guardar Registro"}</Button>
+              <Button disabled={saving} className="w-full !py-4 font-bold">{saving ? <Loader2 className="animate-spin" /> : "Guardar Registro"}</Button>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL REGISTRO PAGO */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-brand-gold animate-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-brand-dark/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-brand-gold animate-in zoom-in">
             <h3 className="text-xl font-serif italic mb-6 text-center">Registrar Pago</h3>
             <div className="space-y-4 text-center">
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input type="number" className="w-full p-4 pl-10 bg-gray-50 border-b border-gray-200 outline-none text-xl font-bold font-serif" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
               </div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest italic">Este monto se sumará al ingreso mensual total.</p>
-              <Button onClick={handlePayment} className="w-full !py-4">Confirmar Pago</Button>
-              <button onClick={() => setShowPaymentModal(null)} className="text-[10px] uppercase font-bold text-gray-300 tracking-widest hover:text-red-400 transition-colors">Cancelar</button>
+              <Button onClick={handlePayment} className="w-full !py-4 font-bold">Confirmar</Button>
+              <button onClick={() => setShowPaymentModal(null)} className="text-[10px] uppercase font-bold text-gray-300 tracking-widest hover:text-red-400">Cancelar</button>
             </div>
           </div>
         </div>

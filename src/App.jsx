@@ -90,6 +90,7 @@ export default function App() {
   const [sessionsData, setSessionsData] = useState({});
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); // Corregido: Variable 'error' declarada
 
   const showNotification = (msg, type = 'success') => {
     setNotification({ msg, type });
@@ -127,6 +128,7 @@ export default function App() {
   const handleLogin = (idInput, nameInput) => {
     const cleanId = idInput.trim().toUpperCase();
     const cleanName = nameInput.trim().toUpperCase();
+    setError(null); // Limpiar errores previos
 
     if (cleanId === 'ADMIN-JEN' && cleanName === 'JENNY') {
       setUser({ firstName: 'JENNY', role: 'admin' });
@@ -145,6 +147,7 @@ export default function App() {
       setView('student');
       showNotification(`Bienvenida, ${found.name.split(' ')[0]}`);
     } else {
+      setError('Datos incorrectos. Verifica ID y nombre.');
       showNotification('Datos incorrectos. Verifica ID y nombre.', 'error');
     }
   };
@@ -176,6 +179,7 @@ export default function App() {
   const handleLogout = () => {
     setUser(null);
     setView('login');
+    setError(null);
     if (typeof window.toggleSystem === 'function') window.toggleSystem(false);
   };
 
@@ -183,7 +187,6 @@ export default function App() {
 
   return (
     <div className="font-serif text-[#1A3A3E] antialiased">
-      {/* MEJORA: Aumentamos z-index de notificación a 150 para que flote sobre los modales */}
       {notification && (
         <div className={`fixed top-4 right-4 z-[150] px-6 py-4 rounded-sm shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-4 duration-300 border-l-4 ${notification.type === 'error' ? 'bg-red-500 text-white border-red-700' : 'bg-[#1A3A3E] text-white border-[#369EAD]'}`}>
           {notification.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
@@ -199,7 +202,7 @@ export default function App() {
 
 // --- VISTAS ---
 
-const LoginView = ({ onLogin }) => {
+const LoginView = ({ onLogin, error }) => {
   const [id, setId] = useState('');
   const [name, setName] = useState('');
   return (
@@ -215,6 +218,14 @@ const LoginView = ({ onLogin }) => {
           <form onSubmit={(e) => { e.preventDefault(); onLogin(id, name); }} className="space-y-6">
             <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
             <input type="text" required placeholder="NOMBRE" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={name} onChange={e => setName(e.target.value)} />
+            
+            {/* Mostrar error si existe */}
+            {error && (
+              <div className="text-red-500 text-[10px] text-center font-bold animate-pulse">
+                {error}
+              </div>
+            )}
+            
             <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Ingresar</button>
           </form>
         </div>
@@ -297,7 +308,6 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
     setSaving(true);
 
     try {
-      // 1. ANALÍTICA DE INTEGRIDAD: Verificar si el ID ya existe antes de sobreescribir
       const docRef = doc(db, 'alumnas', cleanId);
       const docSnap = await getDoc(docRef);
 
@@ -327,7 +337,6 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
   const deleteStudent = async (student) => {
     if (window.confirm(`¿BORRAR A ${student.name}? Sus reservas se cancelarán automáticamente.`)) {
       try {
-        // 2. LIMPIEZA EN CASCADA: Liberar los lugares en las sesiones antes de borrar
         if (student.history && student.history.length > 0) {
           for (const sessionId of student.history) {
             const sessionRef = doc(db, 'sesiones', sessionId);
@@ -396,7 +405,6 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
               <tbody className="divide-y divide-gray-50">
                 {students.map((s) => (
                   <tr key={s.id} className="hover:bg-gray-50 transition-all group">
-                    {/* MEJORA: Diseño horizontal de ID y Nombre */}
                     <td className="px-8 py-6">
                       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
                         <span className="text-[11px] font-black text-[#369EAD] bg-[#EBF5F6] px-2 py-1 rounded-sm border border-[#369EAD]/10 uppercase tracking-tighter min-w-[70px] text-center">

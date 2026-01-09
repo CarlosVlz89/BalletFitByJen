@@ -34,14 +34,14 @@ import {
   Loader2
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE FIREBASE (Tus llaves reales) ---
+// --- CONFIGURACIÓN DE FIREBASE (Llaves integradas para GitHub Pages) ---
 const firebaseConfig = {
-apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyBhGETYAZ4Vp6asoky3e9TGt80-wFiAqiE",
+  authDomain: "balletfitbyjen-6b36a.firebaseapp.com",
+  projectId: "balletfitbyjen-6b36a",
+  storageBucket: "balletfitbyjen-6b36a.firebasestorage.app",
+  messagingSenderId: "561979345720",
+  appId: "1:561979345720:web:d656205cbba706c5f8cfcd"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -63,7 +63,7 @@ const WEEKLY_SCHEDULE = [
   { id: 'sat-09', day: 'Sábado', time: '09:00', type: 'Morning Flow', spots: 12 },
 ];
 
-// --- COMPONENTES UI REUTILIZABLES ---
+// --- COMPONENTES UI ---
 const Card = ({ children, className = '' }) => {
   const hasBg = className.includes('bg-');
   const baseClasses = `rounded-sm shadow-md border-t-4 border-[#369EAD] p-6 transition-all hover:shadow-lg ${hasBg ? '' : 'bg-white'}`;
@@ -85,7 +85,6 @@ const Button = ({ children, onClick, variant = 'primary', disabled = false, clas
   );
 };
 
-// --- APLICACIÓN PRINCIPAL ---
 export default function App() {
   const [view, setView] = useState('login'); 
   const [user, setUser] = useState(null);
@@ -99,37 +98,40 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // 1. Autenticación Inicial Firebase
+  // 1. Autenticación Inicial
   useEffect(() => {
-    signInAnonymously(auth).catch(err => console.error("Error Auth:", err));
-    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
-      if (!fbUser) setLoading(false);
-    });
-    return () => unsubscribe();
+    const initSession = async () => {
+      try {
+        await signInAnonymously(auth);
+      } catch (err) {
+        console.error("Error Auth:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    initSession();
   }, []);
 
-  // 2. Escucha de Datos en Tiempo Real
+  // 2. Escucha de Datos (Ahora con colección 'alumnas' simplificada)
   useEffect(() => {
-    if (!auth.currentUser) return;
-
-    const unsubStudents = onSnapshot(collection(db, 'alumnas'), (snapshot) => {
+    const unsubscribeStudents = onSnapshot(collection(db, 'alumnas'), (snapshot) => {
       const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       setStudents(list);
-      // Actualizar datos del usuario actual si es alumna
+      
+      // Actualizar datos de sesión si la alumna está logueada
       if (user && user.role !== 'admin') {
         const me = list.find(s => s.id === user.id);
-        if (me) setUser({ ...me, role: 'student' });
+        if (me) setUser(prev => ({ ...me, firstName: prev.firstName, role: 'student' }));
       }
-      setLoading(false);
     });
 
-    const unsubSessions = onSnapshot(collection(db, 'sesiones'), (snapshot) => {
+    const unsubscribeSessions = onSnapshot(collection(db, 'sesiones'), (snapshot) => {
       const data = {};
       snapshot.docs.forEach(d => data[d.id] = d.data().booked || 0);
       setSessionsData(data);
     });
 
-    return () => { unsubStudents(); unsubSessions(); };
+    return () => { unsubscribeStudents(); unsubscribeSessions(); };
   }, [user?.id]);
 
   const handleLogin = (id, name) => {
@@ -146,14 +148,15 @@ export default function App() {
     if (found) {
       setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
       setView('student');
+      showNotification(`Bienvenida, ${found.name.split(' ')[0]}`);
     } else {
-      showNotification('Credenciales no encontradas. Verifica ID y Nombre.', 'error');
+      showNotification('Acceso denegado. Verifica tu ID y Nombre.', 'error');
     }
   };
 
   const handleBooking = async (sessionId) => {
     if (user.credits <= 0) {
-      showNotification('¡Sin créditos suficientes!', 'error');
+      showNotification('¡Límite de clases alcanzado!', 'error');
       return;
     }
     try {
@@ -161,7 +164,7 @@ export default function App() {
       const sessionRef = doc(db, 'sesiones', sessionId);
       await updateDoc(studentRef, { credits: increment(-1), history: arrayUnion(sessionId) });
       await setDoc(sessionRef, { booked: increment(1) }, { merge: true });
-      showNotification('¡Reserva confirmada!');
+      showNotification('¡Clase reservada!');
     } catch (err) { showNotification('Error al reservar', 'error'); }
   };
 
@@ -171,7 +174,7 @@ export default function App() {
       const sessionRef = doc(db, 'sesiones', sessionId);
       await updateDoc(studentRef, { credits: increment(1), history: arrayRemove(sessionId) });
       await updateDoc(sessionRef, { booked: increment(-1) });
-      showNotification('Clase cancelada. Crédito devuelto.');
+      showNotification('Clase cancelada.');
     } catch (err) { showNotification('Error al cancelar', 'error'); }
   };
 
@@ -181,14 +184,14 @@ export default function App() {
     if (typeof window.toggleSystem === 'function') window.toggleSystem(false);
   };
 
-  if (loading && view === 'login') return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse">Sincronizando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse">Conectando...</div>;
 
   return (
     <div className="font-serif text-[#1A3A3E] antialiased">
       {notification && (
         <div className={`fixed top-4 right-4 z-[100] px-6 py-4 rounded-sm shadow-xl flex items-center gap-3 animate-in slide-in-from-right-4 duration-300 ${notification.type === 'error' ? 'bg-red-500 text-white' : 'bg-[#1A3A3E] text-white'}`}>
-          {notification.type === 'error' ? <XCircle size={20} /> : <CheckCircle size={20} />}
-          <span className="text-sm font-medium tracking-wide uppercase text-[10px]">{notification.msg}</span>
+          {notification.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
+          <span className="text-[10px] font-bold uppercase tracking-widest">{notification.msg}</span>
         </div>
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} />}
@@ -198,10 +201,10 @@ export default function App() {
   );
 }
 
-// --- VISTA LOGIN ---
+// --- SUB-VISTAS ---
 const LoginView = ({ onLogin }) => {
-  const [inputId, setInputId] = useState('');
-  const [inputName, setInputName] = useState('');
+  const [id, setId] = useState('');
+  const [name, setName] = useState('');
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-cover bg-center relative" 
@@ -213,31 +216,30 @@ const LoginView = ({ onLogin }) => {
             <h1 className="font-serif text-4xl text-[#1A3A3E] mb-1 italic font-bold">Ballet Fit</h1>
             <span className="text-[10px] uppercase tracking-[0.4em] text-[#369EAD] font-bold">Portal de Alumnas</span>
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); onLogin(inputId, inputName); }} className="space-y-6">
+          <form onSubmit={(e) => { e.preventDefault(); onLogin(id, name); }} className="space-y-6">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">ID de Alumna / Admin</label>
+              <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">ID (BF-001)</label>
               <div className="relative">
                 <User className="absolute left-3 top-4 text-[#369EAD] w-5 h-5" />
-                <input type="text" placeholder="BF-001" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none transition-all rounded-sm font-serif uppercase" value={inputId} onChange={(e) => setInputId(e.target.value)} />
+                <input type="text" placeholder="ID" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
               </div>
             </div>
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Primer Nombre</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-4 text-[#369EAD] w-5 h-5" />
-                <input type="text" placeholder="JENNY" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none transition-all rounded-sm font-serif uppercase" value={inputName} onChange={(e) => setInputName(e.target.value)} />
+                <input type="text" placeholder="Nombre" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={name} onChange={e => setName(e.target.value)} />
               </div>
             </div>
             <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Ingresar al Portal</button>
           </form>
-          <div className="mt-8 text-center"><p className="text-[10px] text-gray-400 uppercase tracking-widest italic">¿Problemas para acceder? Contacta a Jen.</p></div>
+          <div className="mt-8 text-center"><p className="text-[10px] text-gray-400 uppercase tracking-widest italic font-sans">Soporte: Contacta a Jen</p></div>
         </div>
       </div>
     </div>
   );
 };
 
-// --- VISTA ALUMNA ---
 const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLogout }) => {
   const myHistory = user.history || [];
   const mySessions = sessions.filter(s => myHistory.includes(s.id));
@@ -249,7 +251,7 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
         <div className="max-w-6xl mx-auto px-6 py-5 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
-            <span className="text-[10px] uppercase tracking-widest text-gray-400 border-l border-gray-200 pl-4">Hola, {user.firstName}</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-400 border-l border-gray-200 pl-4">Alumna: {user.name}</span>
           </div>
           <button onClick={onLogout} className="flex items-center gap-2 text-gray-400 hover:text-[#369EAD] text-[10px] uppercase tracking-widest font-bold transition-colors">
             <span>Salir</span><LogOut className="w-4 h-4" />
@@ -262,8 +264,7 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
           <Card className="md:col-span-2 relative overflow-hidden bg-white border-[#369EAD]">
             <div className="absolute right-0 top-0 opacity-5 transform translate-x-12 -translate-y-12"><PartyPopper size={200} color={BRAND.teal} /></div>
             <h2 className="text-3xl font-serif text-[#1A3A3E] mb-2 italic">Mi Resumen Semanal</h2>
-            <p className="text-gray-400 text-xs uppercase tracking-widest mb-8">Gestiona tus clases y mantén tu ritmo de entrenamiento.</p>
-            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 mt-8">
               <div className="bg-[#EBF5F6] px-8 py-5 rounded-sm border border-[#369EAD]/10">
                 <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-2">Créditos Disponibles</span>
                 <div className="flex items-baseline gap-2">
@@ -271,12 +272,6 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
                   <span className="text-gray-300 text-xl">/ {user.maxCredits}</span>
                 </div>
               </div>
-              {user.credits === 0 && (
-                <div className="pb-4 text-amber-500 flex items-center gap-2 animate-pulse">
-                  <AlertCircle size={18} />
-                  <span className="text-[10px] uppercase font-bold tracking-widest">Paquete completo</span>
-                </div>
-              )}
             </div>
           </Card>
 
@@ -290,13 +285,9 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <p className="text-2xl font-serif text-[#C5A059] font-bold leading-tight italic">{nextClass.day}</p>
                 <p className="text-4xl font-serif text-white font-bold my-2 tracking-tighter">{nextClass.time}</p>
-                <p className="text-[#EBF5F6] text-[10px] uppercase tracking-widest opacity-60">{nextClass.type}</p>
               </div>
             ) : (
-              <div className="opacity-40 italic">
-                <p className="text-[#EBF5F6] text-sm">Sin reservas activas</p>
-                <p className="text-[9px] uppercase tracking-widest mt-2">¡Selecciona un horario!</p>
-              </div>
+              <p className="text-[#EBF5F6] text-[10px] uppercase tracking-widest opacity-40">Sin reservas activas</p>
             )}
           </Card>
         </div>
@@ -338,7 +329,6 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
   );
 };
 
-// --- VISTA ADMIN ---
 const AdminDashboard = ({ students, sessions, sessionsData, db, onLogout }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStudent, setNewStudent] = useState({ id: '', name: '', plan: '2 clases x sem' });
@@ -401,110 +391,58 @@ const AdminDashboard = ({ students, sessions, sessionsData, db, onLogout }) => {
           </Button>
         </div>
 
-        {/* MODAL REGISTRO */}
         {showAddForm && (
           <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300">
+            <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300 text-brand-dark">
               <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors"><X size={28} /></button>
               <h3 className="text-3xl font-serif italic mb-8 border-b border-gray-100 pb-4">Nueva Inscripción</h3>
               <form onSubmit={handleRegister} className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">ID Único (Ej. BF-005)</label>
-                  <input type="text" required className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] text-sm font-serif uppercase" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Nombre Completo</label>
-                  <input type="text" required className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] text-sm font-serif uppercase" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Plan Mensual</label>
-                  <select className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] text-sm font-serif" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
-                    <option>1 clase x sem</option>
-                    <option>2 clases x sem</option>
-                    <option>3 clases x sem</option>
-                    <option>4 clases x sem</option>
-                  </select>
-                </div>
-                <Button disabled={saving} className="w-full !py-5 !text-[11px]">
-                  {saving ? <Loader2 className="animate-spin" /> : "Guardar en Base de Datos"}
-                </Button>
+                <input type="text" placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] font-serif uppercase text-sm" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+                <input type="text" placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] font-serif uppercase text-sm" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                <select className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] font-serif text-sm" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
+                  <option>1 clase x sem</option>
+                  <option>2 clases x sem</option>
+                  <option>3 clases x sem</option>
+                  <option>4 clases x sem</option>
+                </select>
+                <Button disabled={saving} className="w-full !py-5 !text-[11px]">{saving ? "Guardando..." : "Registrar en la nube"}</Button>
               </form>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-          <StatCard title="Total Alumnas" value={students.length} icon={<Users />} color="bg-[#369EAD]" />
-          <StatCard title="Reservas Hoy" value={students.reduce((acc, s) => acc + (s.history?.length || 0), 0)} icon={<Calendar />} color="bg-[#1A3A3E]" />
-          <StatCard title="Cupo Ocupado" value={Object.values(sessionsData).reduce((a, b) => a + b, 0)} icon={<CheckCircle />} color="bg-[#C5A059]" />
-          <StatCard title="Status" value="Online" icon={<PartyPopper />} color="bg-green-500" />
-        </div>
-
-        <div className="bg-white rounded-sm shadow-xl overflow-hidden border border-gray-100">
-          <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-            <h3 className="font-serif text-xl italic font-bold">Base de Datos de Alumnas</h3>
-            <Button variant="secondary" className="!text-[9px] !px-4">Exportar CSV</Button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 tracking-[0.2em] font-bold">
-                <tr>
-                  <th className="px-8 py-6">ID / Nombre</th>
-                  <th className="px-8 py-6 text-center">Créditos</th>
-                  <th className="px-8 py-6">Plan Actual</th>
-                  <th className="px-8 py-6 text-right pr-12">Control</th>
+        <div className="bg-white rounded-sm shadow-xl overflow-hidden border border-gray-100 mt-12">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 tracking-[0.2em] font-bold">
+              <tr>
+                <th className="px-8 py-6">ID / Nombre</th>
+                <th className="px-8 py-6 text-center">Créditos</th>
+                <th className="px-8 py-6 text-right pr-12">Control</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {students.map((s) => (
+                <tr key={s.id} className="hover:bg-gray-50/80 transition-all">
+                  <td className="px-8 py-6 font-serif">
+                    <div className="font-bold text-[#1A3A3E] text-base italic">{s.name}</div>
+                    <div className="text-[10px] text-gray-400 tracking-widest">{s.id}</div>
+                  </td>
+                  <td className="px-8 py-6 text-center">
+                    <span className={`text-xl font-bold ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>
+                    <span className="text-gray-300 text-sm"> / {s.maxCredits}</span>
+                  </td>
+                  <td className="px-8 py-6 text-right pr-10">
+                    <div className="flex justify-end gap-4">
+                      <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-2 text-[#C5A059] hover:bg-amber-50 rounded-full transition-all"><Clock size={20}/></button>
+                      <button onClick={() => deleteStudent(s.id, s.name)} className="p-2 text-red-200 hover:text-red-600 transition-all"><Trash2 size={20}/></button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {students.map((s) => (
-                  <tr key={s.id} className="hover:bg-gray-50/80 transition-all group">
-                    <td className="px-8 py-6">
-                      <div className="font-bold text-[#1A3A3E] text-base font-serif italic">{s.name}</div>
-                      <div className="text-[10px] text-gray-400 font-sans tracking-widest">{s.id}</div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex items-baseline justify-center gap-1">
-                        <span className={`text-xl font-bold font-serif ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>
-                        <span className="text-gray-300 text-sm">/ {s.maxCredits}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <span className="text-[10px] font-black uppercase text-[#369EAD] bg-[#EBF5F6] px-3 py-1 rounded-full tracking-widest">{s.plan}</span>
-                    </td>
-                    <td className="px-8 py-6 text-right pr-10">
-                      <div className="flex justify-end gap-4">
-                        <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-3 text-[#C5A059] hover:bg-amber-50 rounded-full transition-all" title="Reiniciar Semana">
-                          <Clock size={20} />
-                        </button>
-                        <button onClick={() => deleteStudent(s.id, s.name)} className="p-3 text-red-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all">
-                          <Trash2 size={20} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {students.length === 0 && (
-              <div className="p-20 text-center text-gray-300 italic font-serif">No hay registros cargados.</div>
-            )}
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 };
-
-function StatCard({ title, value, icon, color }) {
-  return (
-    <div className="bg-white p-6 rounded-sm shadow-sm border border-gray-100 flex items-center gap-5 group hover:shadow-md transition-all">
-      <div className={`${color} p-4 rounded text-white shadow-inner transition-transform group-hover:rotate-6`}>
-        {React.cloneElement(icon, { size: 24 })}
-      </div>
-      <div>
-        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">{title}</p>
-        <p className="text-2xl font-bold text-[#1A3A3E] font-serif">{value}</p>
-      </div>
-    </div>
-  );
-}

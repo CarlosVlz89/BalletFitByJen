@@ -34,7 +34,7 @@ import {
   Loader2
 } from 'lucide-react';
 
-// --- CONFIGURACIÓN DE FIREBASE (Llaves integradas para GitHub Pages) ---
+// --- CONFIGURACIÓN DE FIREBASE (Llaves integradas) ---
 const firebaseConfig = {
   apiKey: "AIzaSyBhGETYAZ4Vp6asoky3e9TGt80-wFiAqiE",
   authDomain: "balletfitbyjen-6b36a.firebaseapp.com",
@@ -50,10 +50,8 @@ const auth = getAuth(app);
 
 const BRAND = {
   teal: '#369EAD',
-  tealLight: '#EBF5F6',
   dark: '#1A3A3E',
   gold: '#C5A059',
-  white: '#FFFFFF'
 };
 
 const WEEKLY_SCHEDULE = [
@@ -64,19 +62,18 @@ const WEEKLY_SCHEDULE = [
 ];
 
 // --- COMPONENTES UI ---
-const Card = ({ children, className = '' }) => {
-  const hasBg = className.includes('bg-');
-  const baseClasses = `rounded-sm shadow-md border-t-4 border-[#369EAD] p-6 transition-all hover:shadow-lg ${hasBg ? '' : 'bg-white'}`;
-  return <div className={`${baseClasses} ${className}`}>{children}</div>;
-};
+const Card = ({ children, className = '' }) => (
+  <div className={`rounded-sm shadow-md border-t-4 border-[#369EAD] p-6 bg-white transition-all hover:shadow-lg ${className}`}>
+    {children}
+  </div>
+);
 
 const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '' }) => {
-  const baseStyle = "px-6 py-2 rounded-sm font-medium tracking-widest uppercase text-xs transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2";
+  const baseStyle = "px-6 py-2 rounded-sm font-medium tracking-widest uppercase text-xs transition-all transform active:scale-95 flex items-center justify-center gap-2";
   const variants = {
-    primary: "bg-[#369EAD] text-white hover:bg-[#1A3A3E] shadow-sm",
-    secondary: "border border-[#369EAD] text-[#369EAD] hover:bg-[#EBF5F6]",
-    danger: "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200",
-    disabled: "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+    primary: "bg-[#369EAD] text-white hover:bg-[#1A3A3E]",
+    secondary: "border border-[#369EAD] text-[#369EAD] hover:bg-gray-50",
+    disabled: "bg-gray-100 text-gray-300 cursor-not-allowed"
   };
   return (
     <button onClick={disabled ? null : onClick} className={`${baseStyle} ${disabled ? variants.disabled : variants[variant]} ${className}`} disabled={disabled}>
@@ -98,65 +95,74 @@ export default function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // 1. Autenticación Inicial
+  // 1. Efecto de Sincronización Global
   useEffect(() => {
-    const initSession = async () => {
+    const startApp = async () => {
       try {
         await signInAnonymously(auth);
-      } catch (err) {
-        console.error("Error Auth:", err);
-      } finally {
-        setLoading(false);
-      }
+      } catch (err) { console.error("Error Auth:", err); }
+
+      // Escuchamos alumnas (Incluso antes del login para que la tabla esté lista)
+      const unsubStudents = onSnapshot(collection(db, 'alumnas'), (snapshot) => {
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setStudents(list);
+        setLoading(false); // Quitamos el loading cuando ya tenemos datos
+      });
+
+      // Escuchamos ocupación de sesiones
+      const unsubSessions = onSnapshot(collection(db, 'sesiones'), (snapshot) => {
+        const data = {};
+        snapshot.docs.forEach(d => data[d.id] = d.data().booked || 0);
+        setSessionsData(data);
+      });
+
+      return () => { unsubStudents(); unsubSessions(); };
     };
-    initSession();
+
+    startApp();
   }, []);
 
-  // 2. Escucha de Datos (Ahora con colección 'alumnas' simplificada)
+  // 2. Mantener al usuario actualizado si cambian sus créditos mientras está logueado
   useEffect(() => {
-    const unsubscribeStudents = onSnapshot(collection(db, 'alumnas'), (snapshot) => {
-      const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      setStudents(list);
-      
-      // Actualizar datos de sesión si la alumna está logueada
-      if (user && user.role !== 'admin') {
-        const me = list.find(s => s.id === user.id);
-        if (me) setUser(prev => ({ ...me, firstName: prev.firstName, role: 'student' }));
+    if (user && user.role === 'student') {
+      const me = students.find(s => s.id === user.id);
+      if (me) {
+        setUser(prev => ({ ...prev, ...me }));
       }
-    });
+    }
+  }, [students]);
 
-    const unsubscribeSessions = onSnapshot(collection(db, 'sesiones'), (snapshot) => {
-      const data = {};
-      snapshot.docs.forEach(d => data[d.id] = d.data().booked || 0);
-      setSessionsData(data);
-    });
+  const handleLogin = (idInput, nameInput) => {
+    const cleanId = idInput.trim().toUpperCase();
+    const cleanName = nameInput.trim().toUpperCase();
 
-    return () => { unsubscribeStudents(); unsubscribeSessions(); };
-  }, [user?.id]);
-
-  const handleLogin = (id, name) => {
-    const cleanId = id.trim().toUpperCase();
-    const cleanName = name.trim().toUpperCase();
-
+    // Login Administradora
     if (cleanId === 'ADMIN-JEN' && cleanName === 'JENNY') {
       setUser({ firstName: 'JENNY', role: 'admin' });
       setView('admin');
       return;
     }
 
-    const found = students.find(s => s.id === cleanId && s.name === cleanName);
+    // Login Alumna
+    const found = students.find(s => {
+      const dbId = s.id.toUpperCase();
+      // Comparamos el ID y checamos si el nombre ingresado es parte del nombre registrado
+      const dbFirstName = s.name.split(' ')[0].toUpperCase();
+      return dbId === cleanId && (s.name.toUpperCase() === cleanName || dbFirstName === cleanName);
+    });
+
     if (found) {
       setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
       setView('student');
       showNotification(`Bienvenida, ${found.name.split(' ')[0]}`);
     } else {
-      showNotification('Acceso denegado. Verifica tu ID y Nombre.', 'error');
+      showNotification('Datos incorrectos. Verifica ID y primer nombre.', 'error');
     }
   };
 
   const handleBooking = async (sessionId) => {
     if (user.credits <= 0) {
-      showNotification('¡Límite de clases alcanzado!', 'error');
+      showNotification('Sin créditos disponibles.', 'error');
       return;
     }
     try {
@@ -184,7 +190,7 @@ export default function App() {
     if (typeof window.toggleSystem === 'function') window.toggleSystem(false);
   };
 
-  if (loading) return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse">Conectando...</div>;
+  if (loading) return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse bg-white italic">Sincronizando con el estudio...</div>;
 
   return (
     <div className="font-serif text-[#1A3A3E] antialiased">
@@ -196,12 +202,13 @@ export default function App() {
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} />}
       {view === 'student' && <StudentDashboard user={user} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
-      {view === 'admin' && <AdminDashboard students={students} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} db={db} onLogout={handleLogout} />}
+      {view === 'admin' && <AdminDashboard students={students} db={db} onLogout={handleLogout} />}
     </div>
   );
 }
 
-// --- SUB-VISTAS ---
+// --- VISTAS ---
+
 const LoginView = ({ onLogin }) => {
   const [id, setId] = useState('');
   const [name, setName] = useState('');
@@ -214,26 +221,26 @@ const LoginView = ({ onLogin }) => {
         <div className="bg-white/95 backdrop-blur-md p-8 md:p-12 rounded-sm shadow-2xl border-t-8 border-[#369EAD]">
           <div className="text-center mb-10">
             <h1 className="font-serif text-4xl text-[#1A3A3E] mb-1 italic font-bold">Ballet Fit</h1>
-            <span className="text-[10px] uppercase tracking-[0.4em] text-[#369EAD] font-bold">Portal de Alumnas</span>
+            <span className="text-[10px] uppercase tracking-[0.4em] text-[#369EAD] font-bold">Control de Asistencia</span>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); onLogin(id, name); }} className="space-y-6">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">ID (BF-001)</label>
+              <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">ID de Alumna (BF-XXX)</label>
               <div className="relative">
                 <User className="absolute left-3 top-4 text-[#369EAD] w-5 h-5" />
-                <input type="text" placeholder="ID" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
+                <input type="text" required placeholder="BF-001" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
               </div>
             </div>
             <div>
               <label className="block text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-2">Primer Nombre</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-4 text-[#369EAD] w-5 h-5" />
-                <input type="text" placeholder="Nombre" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={name} onChange={e => setName(e.target.value)} />
+                <input type="text" required placeholder="NOMBRE" className="w-full pl-10 pr-4 py-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={name} onChange={e => setName(e.target.value)} />
               </div>
             </div>
             <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Ingresar al Portal</button>
           </form>
-          <div className="mt-8 text-center"><p className="text-[10px] text-gray-400 uppercase tracking-widest italic font-sans">Soporte: Contacta a Jen</p></div>
+          <div className="mt-8 text-center"><p className="text-[10px] text-gray-400 uppercase tracking-widest italic font-sans">¿Olvidaste tu ID? Contacta a Jen.</p></div>
         </div>
       </div>
     </div>
@@ -254,40 +261,37 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
             <span className="text-[10px] uppercase tracking-widest text-gray-400 border-l border-gray-200 pl-4">Alumna: {user.name}</span>
           </div>
           <button onClick={onLogout} className="flex items-center gap-2 text-gray-400 hover:text-[#369EAD] text-[10px] uppercase tracking-widest font-bold transition-colors">
-            <span>Salir</span><LogOut className="w-4 h-4" />
+            <span>Salir</span><LogOut size={18} />
           </button>
         </div>
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          <Card className="md:col-span-2 relative overflow-hidden bg-white border-[#369EAD]">
+          <Card className="md:col-span-2 relative overflow-hidden">
             <div className="absolute right-0 top-0 opacity-5 transform translate-x-12 -translate-y-12"><PartyPopper size={200} color={BRAND.teal} /></div>
             <h2 className="text-3xl font-serif text-[#1A3A3E] mb-2 italic">Mi Resumen Semanal</h2>
-            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 mt-8">
-              <div className="bg-[#EBF5F6] px-8 py-5 rounded-sm border border-[#369EAD]/10">
-                <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-2">Créditos Disponibles</span>
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-5xl font-bold font-serif ${user.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{user.credits}</span>
-                  <span className="text-gray-300 text-xl">/ {user.maxCredits}</span>
-                </div>
+            <p className="text-gray-400 text-xs uppercase tracking-widest mb-8">Tus clases activas para esta semana.</p>
+            <div className="bg-[#EBF5F6] px-8 py-5 rounded-sm border border-[#369EAD]/10 inline-block">
+              <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold mb-2">Clases disponibles</span>
+              <div className="flex items-baseline gap-2">
+                <span className={`text-5xl font-bold font-serif ${user.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{user.credits}</span>
+                <span className="text-gray-300 text-xl">/ {user.maxCredits}</span>
               </div>
             </div>
           </Card>
 
           <Card className="flex flex-col justify-center items-center text-center bg-[#1A3A3E] border-none text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 left-0 w-full h-1 bg-[#C5A059]"></div>
-            <div className="w-16 h-16 rounded-full bg-[#369EAD] flex items-center justify-center mb-5 shadow-lg border-2 border-[#C5A059]/30">
-              <Calendar className="w-8 h-8 text-white" />
-            </div>
+            <Calendar className="w-10 h-10 text-[#C5A059] mb-4" />
             <h3 className="text-[10px] uppercase tracking-[0.3em] text-[#C5A059] font-black mb-3">Próxima Clase</h3>
             {nextClass ? (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <p className="text-2xl font-serif text-[#C5A059] font-bold leading-tight italic">{nextClass.day}</p>
+                <p className="text-2xl font-serif text-[#C5A059] font-bold italic">{nextClass.day}</p>
                 <p className="text-4xl font-serif text-white font-bold my-2 tracking-tighter">{nextClass.time}</p>
               </div>
             ) : (
-              <p className="text-[#EBF5F6] text-[10px] uppercase tracking-widest opacity-40">Sin reservas activas</p>
+              <p className="text-[#EBF5F6] text-[10px] uppercase tracking-widest opacity-40">Sin reservas</p>
             )}
           </Card>
         </div>
@@ -329,7 +333,7 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
   );
 };
 
-const AdminDashboard = ({ students, sessions, sessionsData, db, onLogout }) => {
+const AdminDashboard = ({ students, db, onLogout }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStudent, setNewStudent] = useState({ id: '', name: '', plan: '2 clases x sem' });
   const [saving, setSaving] = useState(false);
@@ -377,7 +381,7 @@ const AdminDashboard = ({ students, sessions, sessionsData, db, onLogout }) => {
         <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <span className="text-xl font-serif font-black tracking-tighter">BF ADMIN</span>
-            <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">Master Control</span>
+            <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">Master</span>
           </div>
           <button onClick={onLogout} className="text-gray-300 hover:text-white text-[10px] uppercase font-bold tracking-widest transition-colors">Salir</button>
         </div>
@@ -385,17 +389,17 @@ const AdminDashboard = ({ students, sessions, sessionsData, db, onLogout }) => {
 
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">Gestión de Estudio</h2>
+          <h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">Panel Administrativo</h2>
           <Button onClick={() => setShowAddForm(true)} className="!py-4 shadow-xl">
-            <UserPlus size={18} /> Registrar Alumna
+            <UserPlus size={18} /> Registrar Nueva Alumna
           </Button>
         </div>
 
         {showAddForm && (
           <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300 text-brand-dark">
+            <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300">
               <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors"><X size={28} /></button>
-              <h3 className="text-3xl font-serif italic mb-8 border-b border-gray-100 pb-4">Nueva Inscripción</h3>
+              <h3 className="text-3xl font-serif italic mb-8 border-b border-gray-100 pb-4">Inscripción</h3>
               <form onSubmit={handleRegister} className="space-y-6">
                 <input type="text" placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] font-serif uppercase text-sm" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
                 <input type="text" placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 outline-none focus:border-[#369EAD] font-serif uppercase text-sm" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
@@ -405,7 +409,7 @@ const AdminDashboard = ({ students, sessions, sessionsData, db, onLogout }) => {
                   <option>3 clases x sem</option>
                   <option>4 clases x sem</option>
                 </select>
-                <Button disabled={saving} className="w-full !py-5 !text-[11px]">{saving ? "Guardando..." : "Registrar en la nube"}</Button>
+                <Button disabled={saving} className="w-full !py-5">{saving ? <Loader2 className="animate-spin" /> : "Guardar en Base de Datos"}</Button>
               </form>
             </div>
           </div>
@@ -425,7 +429,7 @@ const AdminDashboard = ({ students, sessions, sessionsData, db, onLogout }) => {
                 <tr key={s.id} className="hover:bg-gray-50/80 transition-all">
                   <td className="px-8 py-6 font-serif">
                     <div className="font-bold text-[#1A3A3E] text-base italic">{s.name}</div>
-                    <div className="text-[10px] text-gray-400 tracking-widest">{s.id}</div>
+                    <div className="text-[10px] text-gray-400 tracking-widest uppercase">{s.id}</div>
                   </td>
                   <td className="px-8 py-6 text-center">
                     <span className={`text-xl font-bold ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>

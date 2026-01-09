@@ -50,6 +50,9 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
 // --- INICIALIZACIÓN ---
 let db, auth;
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'ballet-fit-estudio';

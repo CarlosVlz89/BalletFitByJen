@@ -32,7 +32,10 @@ import {
   Trash2,
   UserPlus,
   X,
-  Loader2
+  Loader2,
+  CalendarX,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -55,11 +58,12 @@ const BRAND = {
   gold: '#C5A059',
 };
 
+// --- CONFIGURACIÓN DE HORARIOS ACTUALIZADA ---
 const WEEKLY_SCHEDULE = [
-  { id: 'mon-19', day: 'Lunes', time: '19:00', type: 'Ballet Fit', spots: 10 },
-  { id: 'wed-19', day: 'Miércoles', time: '19:00', type: 'Ballet Fit', spots: 10 },
-  { id: 'fri-19', day: 'Viernes', time: '19:00', type: 'Ballet Fit', spots: 10 },
-  { id: 'sat-09', day: 'Sábado', time: '09:00', type: 'Morning Flow', spots: 12 },
+  { id: 'mon-19', day: 'Lunes', time: '19:00', type: 'Ballet Fit', spots: 10, teacher: 'Jenny', dayIdx: 1 },
+  { id: 'wed-19', day: 'Miércoles', time: '19:00', type: 'Ballet Fit', spots: 10, teacher: 'Jenny', dayIdx: 3 },
+  { id: 'fri-19', day: 'Viernes', time: '19:00', type: 'Ballet Fit', spots: 10, teacher: 'Lucy', dayIdx: 5 },
+  { id: 'sat-09', day: 'Sábado', time: '09:00', type: 'Ballet Fit', spots: 10, teacher: 'Jenny', dayIdx: 6 },
 ];
 
 // --- COMPONENTES UI ---
@@ -83,14 +87,37 @@ const Button = ({ children, onClick, variant = 'primary', disabled = false, clas
   );
 };
 
+// --- UTILIDADES ---
+// Función para calcular las horas restantes hasta la próxima clase
+const getHoursUntilClass = (dayIdx, timeStr) => {
+  const now = new Date();
+  const classTime = new Date();
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  
+  // Ajustar al próximo día de la semana correspondiente
+  let daysToAdd = (dayIdx - now.getDay() + 7) % 7;
+  // Si es hoy pero la hora ya pasó, mover a la próxima semana
+  if (daysToAdd === 0) {
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const classMinutesTotal = hours * 60 + minutes;
+    if (nowMinutes > classMinutesTotal) daysToAdd = 7;
+  }
+  
+  classTime.setDate(now.getDate() + daysToAdd);
+  classTime.setHours(hours, minutes, 0, 0);
+  
+  const diffMs = classTime - now;
+  return diffMs / (1000 * 60 * 60); // Horas decimales
+};
+
 export default function App() {
   const [view, setView] = useState('login'); 
   const [user, setUser] = useState(null);
   const [students, setStudents] = useState([]);
-  const [sessionsData, setSessionsData] = useState({});
+  const [sessionsData, setSessionsData] = useState({}); // booked, status, etc.
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // Corregido: Variable 'error' declarada
+  const [error, setError] = useState(null);
 
   const showNotification = (msg, type = 'success') => {
     setNotification({ msg, type });
@@ -109,7 +136,7 @@ export default function App() {
 
       const unsubSessions = onSnapshot(collection(db, 'sesiones'), (snapshot) => {
         const data = {};
-        snapshot.docs.forEach(d => data[d.id] = d.data().booked || 0);
+        snapshot.docs.forEach(d => data[d.id] = d.data());
         setSessionsData(data);
       });
 
@@ -128,7 +155,7 @@ export default function App() {
   const handleLogin = (idInput, nameInput) => {
     const cleanId = idInput.trim().toUpperCase();
     const cleanName = nameInput.trim().toUpperCase();
-    setError(null); // Limpiar errores previos
+    setError(null);
 
     if (cleanId === 'ADMIN-JEN' && cleanName === 'JENNY') {
       setUser({ firstName: 'JENNY', role: 'admin' });
@@ -153,10 +180,19 @@ export default function App() {
   };
 
   const handleBooking = async (sessionId) => {
+    const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
+    const sessionState = sessionsData[sessionId];
+
+    if (sessionState?.isClosed) {
+      showNotification('Esta clase está cerrada por feriado.', 'error');
+      return;
+    }
+
     if (user.credits <= 0) {
       showNotification('Sin créditos disponibles.', 'error');
       return;
     }
+
     try {
       const studentRef = doc(db, 'alumnas', user.id);
       const sessionRef = doc(db, 'sesiones', sessionId);
@@ -167,12 +203,28 @@ export default function App() {
   };
 
   const handleCancel = async (sessionId) => {
+    const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
+    const hoursRemaining = getHoursUntilClass(sessionConfig.dayIdx, sessionConfig.time);
+    const isLateCancellation = hoursRemaining < 6;
+
+    if (isLateCancellation) {
+      if (!window.confirm("Faltan menos de 6 horas para la clase. Puedes cancelar tu lugar, pero NO se te devolverá el crédito. ¿Deseas continuar?")) return;
+    }
+
     try {
       const studentRef = doc(db, 'alumnas', user.id);
       const sessionRef = doc(db, 'sesiones', sessionId);
-      await updateDoc(studentRef, { credits: increment(1), history: arrayRemove(sessionId) });
+
+      // Si es cancelación a tiempo, devolvemos el crédito
+      if (!isLateCancellation) {
+        await updateDoc(studentRef, { credits: increment(1), history: arrayRemove(sessionId) });
+      } else {
+        // Si es tarde, solo quitamos de su historial (pierde el crédito)
+        await updateDoc(studentRef, { history: arrayRemove(sessionId) });
+      }
+      
       await updateDoc(sessionRef, { booked: increment(-1) });
-      showNotification('Clase cancelada.');
+      showNotification(isLateCancellation ? 'Lugar liberado (Crédito no devuelto)' : 'Clase cancelada y crédito devuelto.');
     } catch (err) { showNotification('Error al cancelar', 'error'); }
   };
 
@@ -195,7 +247,7 @@ export default function App() {
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
       {view === 'student' && <StudentDashboard user={user} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
-      {view === 'admin' && <AdminDashboard students={students} db={db} onLogout={handleLogout} showNotification={showNotification} />}
+      {view === 'admin' && <AdminDashboard students={students} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
     </div>
   );
 }
@@ -218,14 +270,7 @@ const LoginView = ({ onLogin, error }) => {
           <form onSubmit={(e) => { e.preventDefault(); onLogin(id, name); }} className="space-y-6">
             <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
             <input type="text" required placeholder="NOMBRE" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={name} onChange={e => setName(e.target.value)} />
-            
-            {/* Mostrar error si existe */}
-            {error && (
-              <div className="text-red-500 text-[10px] text-center font-bold animate-pulse">
-                {error}
-              </div>
-            )}
-            
+            {error && <div className="text-red-500 text-[10px] text-center font-bold animate-pulse">{error}</div>}
             <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Ingresar</button>
           </form>
         </div>
@@ -271,20 +316,28 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {sessions.map((s) => {
             const isBooked = myHistory.includes(s.id);
-            const isFull = (sessionsData[s.id] || 0) >= s.spots;
-            const canBook = user.credits > 0 && !isBooked && !isFull;
+            const sessionState = sessionsData[s.id] || { booked: 0, isClosed: false };
+            const isFull = (sessionState.booked || 0) >= s.spots;
+            const isClosed = sessionState.isClosed;
+            const canBook = user.credits > 0 && !isBooked && !isFull && !isClosed;
+            
             return (
-              <div key={s.id} className={`p-8 rounded-sm border transition-all ${isBooked ? 'bg-[#EBF5F6] border-[#369EAD]' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
+              <div key={s.id} className={`p-8 rounded-sm border transition-all ${isBooked ? 'bg-[#EBF5F6] border-[#369EAD]' : isClosed ? 'bg-gray-50 opacity-60 border-gray-200' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
                 <div className="mb-6">
-                  <span className="text-[10px] uppercase font-black opacity-40">{s.day}</span>
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] uppercase font-black opacity-40">{s.day}</span>
+                    {isClosed && <span className="bg-red-100 text-red-600 text-[8px] px-2 py-0.5 rounded font-black uppercase">Feriado</span>}
+                  </div>
                   <h4 className="text-3xl font-serif italic font-bold">{s.time}</h4>
-                  <p className="text-[10px] text-gray-400 uppercase mt-2">{s.type}</p>
+                  <p className="text-[10px] text-[#369EAD] font-bold uppercase tracking-widest mt-1">Maestra: {s.teacher}</p>
                 </div>
                 <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-50">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase"><Users size={12} className="inline mr-1" />{sessionsData[s.id] || 0}/{s.spots}</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase"><Users size={12} className="inline mr-1" />{sessionState.booked || 0}/{s.spots}</span>
                   {isBooked ? 
                     <button onClick={() => onCancel(s.id)} className="text-[10px] text-red-400 font-bold uppercase underline underline-offset-8">Cancelar</button> :
-                    <Button onClick={() => onBook(s.id)} disabled={!canBook} className="!px-4 !py-2 !text-[9px]">{isFull ? 'Lleno' : 'Reservar'}</Button>
+                    <Button onClick={() => onBook(s.id)} disabled={!canBook} className="!px-4 !py-2 !text-[9px]">
+                      {isClosed ? 'Cerrado' : isFull ? 'Lleno' : 'Reservar'}
+                    </Button>
                   }
                 </div>
               </div>
@@ -296,10 +349,18 @@ const StudentDashboard = ({ user, sessions, sessionsData, onBook, onCancel, onLo
   );
 };
 
-const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
+const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newStudent, setNewStudent] = useState({ id: '', name: '', plan: '2 clases x sem' });
   const [saving, setSaving] = useState(false);
+
+  const toggleSessionStatus = async (sessionId, currentStatus) => {
+    const sessionRef = doc(db, 'sesiones', sessionId);
+    try {
+      await setDoc(sessionRef, { isClosed: !currentStatus }, { merge: true });
+      showNotification(!currentStatus ? 'Clase marcada como Feriado' : 'Clase abierta nuevamente');
+    } catch (err) { console.error(err); }
+  };
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -310,13 +371,11 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
     try {
       const docRef = doc(db, 'alumnas', cleanId);
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
-        showNotification(`Error: El ID ${cleanId} ya está asignado a ${docSnap.data().name}`, 'error');
+        showNotification(`ID ${cleanId} ya usado por ${docSnap.data().name}`, 'error');
         setSaving(false);
         return;
       }
-
       const max = parseInt(newStudent.plan.split(' ')[0]) || 2;
       await setDoc(docRef, {
         id: cleanId,
@@ -335,16 +394,16 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
   };
 
   const deleteStudent = async (student) => {
-    if (window.confirm(`¿BORRAR A ${student.name}? Sus reservas se cancelarán automáticamente.`)) {
+    if (window.confirm(`¿BORRAR A ${student.name}? Se liberarán sus cupos.`)) {
       try {
-        if (student.history && student.history.length > 0) {
+        if (student.history?.length > 0) {
           for (const sessionId of student.history) {
             const sessionRef = doc(db, 'sesiones', sessionId);
             await updateDoc(sessionRef, { booked: increment(-1) });
           }
         }
         await deleteDoc(doc(db, 'alumnas', student.id));
-        showNotification('Alumna eliminada y cupos liberados');
+        showNotification('Alumna eliminada');
       } catch (err) { console.error(err); }
     }
   };
@@ -363,20 +422,39 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-12">
+        {/* SECCIÓN DE GESTIÓN DE HORARIOS / FERIADOS */}
+        <h3 className="text-xl font-serif italic font-bold mb-6 border-l-4 border-[#369EAD] pl-4">Gestión de Clases (Feriados)</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+          {WEEKLY_SCHEDULE.map(s => {
+            const isClosed = sessionsData[s.id]?.isClosed || false;
+            return (
+              <div key={s.id} className="bg-white p-4 rounded shadow-sm border border-gray-100 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase">{s.day} {s.time}</p>
+                  <p className="text-xs font-bold">{isClosed ? '🔴 Cerrado' : '🟢 Abierto'}</p>
+                </div>
+                <button onClick={() => toggleSessionStatus(s.id, isClosed)} className="text-[#369EAD] hover:scale-110 transition-transform">
+                  {isClosed ? <ToggleLeft size={32} /> : <ToggleRight size={32} className="text-[#369EAD]" />}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-          <h2 className="text-3xl md:text-4xl font-serif italic font-bold">Gestión de Alumnas</h2>
+          <h2 className="text-3xl md:text-4xl font-serif italic font-bold">Base de Datos de Alumnas</h2>
           <Button onClick={() => setShowAddForm(true)} className="!py-4 shadow-xl"><UserPlus size={18} /> Registrar Alumna</Button>
         </div>
 
         {showAddForm && (
           <div className="fixed inset-0 bg-brand-dark/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md p-8 md:p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300">
+            <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in duration-300">
               <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors"><X size={28} /></button>
-              <h3 className="text-2xl md:text-3xl font-serif italic mb-8 border-b border-gray-100 pb-4">Nueva Inscripción</h3>
+              <h3 className="text-3xl font-serif italic mb-8 border-b border-gray-100 pb-4 text-brand-dark">Nueva Inscripción</h3>
               <form onSubmit={handleRegister} className="space-y-6">
-                <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] uppercase text-sm outline-none transition-all" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
-                <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] uppercase text-sm outline-none transition-all" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
-                <select className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] text-sm outline-none cursor-pointer" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
+                <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] uppercase text-sm outline-none transition-all text-brand-dark" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+                <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] uppercase text-sm outline-none transition-all text-brand-dark" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                <select className="w-full p-4 bg-gray-50 border-b-2 border-gray-100 focus:border-[#369EAD] text-sm outline-none cursor-pointer text-brand-dark" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
                   <option>1 clase x sem</option>
                   <option>2 clases x sem</option>
                   <option>3 clases x sem</option>
@@ -389,10 +467,6 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
         )}
 
         <div className="bg-white rounded-sm shadow-xl overflow-hidden border border-gray-100">
-          <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
-             <h3 className="font-bold italic text-brand-dark">Listado Maestro de Alumnas</h3>
-             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{students.length} Registros</span>
-          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 tracking-widest font-bold">
@@ -433,9 +507,6 @@ const AdminDashboard = ({ students, db, onLogout, showNotification }) => {
                 ))}
               </tbody>
             </table>
-            {students.length === 0 && (
-              <div className="p-20 text-center text-gray-300 italic">No hay alumnas registradas todavía.</div>
-            )}
           </div>
         </div>
       </div>

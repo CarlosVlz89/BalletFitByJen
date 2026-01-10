@@ -372,6 +372,7 @@ export default function App() {
 
 // --- VISTAS ---
 
+// --- PAGINA DE LOGIN ---
 const LoginView = ({ onLogin, error }) => {
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
@@ -408,6 +409,7 @@ const LoginView = ({ onLogin, error }) => {
   );
 };
 
+// --- PANEL DE ALUMNAS ---
 const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout }) => {
   const myHistory = user.history || [];
   const mySessions = sessions.filter(s => myHistory.includes(s.id));
@@ -517,6 +519,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
   );
 };
 
+// --- PANEL PRINCIPAL JENNY ---
 const AdminDashboard = ({ students, teachers, sessionsData, db, appId, onLogout, showNotification }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showStaffForm, setShowStaffForm] = useState(false);
@@ -1070,6 +1073,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, appId, onLogout,
   );
 };
 
+// --- PANEL MAESTRAS ---
 const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, showNotification }) => {
   const currentMonth = getCurrentMonthName();
   const teacherClasses = WEEKLY_SCHEDULE.filter(s => s.teacher.toUpperCase() === user.firstName.toUpperCase());
@@ -1095,7 +1099,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, s
     <div className="pb-20">
       <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-3">
-          <span className="text-xl font-serif font-black tracking-tight uppercase">Portal Staff</span>
+          <span className="text-xl font-serif font-black tracking-tight uppercase">Portal Maestras</span>
           <span className="bg-[#369EAD] text-white text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{user.firstName}</span>
         </div>
         <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>

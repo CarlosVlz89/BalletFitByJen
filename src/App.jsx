@@ -53,14 +53,7 @@ import {
   BookOpen,
   Eye,
   EyeOff,
-  Key,
-  ShieldCheck,
-  ShieldAlert,
-  GraduationCap,
-  Settings,
-  CalendarX,
-  Tag,
-  Medal
+  Key
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -76,6 +69,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const appId = "balletfitbyjen-6b36a"; 
+
+// --- SECRETOS DE ACCESO ---
+const ADMIN_PASS = "JENNY2024";
+const TEACHER_PASS = "LUCY2024";
 
 const WEEKLY_SCHEDULE = [
   { id: 'mon-19', day: 'Lunes', time: '19:00', type: 'Ballet Fit', spots: 10, teacher: 'Jenny', dayIdx: 1 },
@@ -101,16 +99,14 @@ const MOTIVATIONAL_QUOTES = [
   "La elegancia se entrena con cada paso."
 ];
 
-// --- COMPONENTES BASE UI ---
-function Card({ children, className = '' }) {
-  return (
-    <div className={`rounded-sm shadow-md border-t-4 border-[#369EAD] p-6 bg-white transition-all hover:shadow-lg ${className}`}>
-      {children}
-    </div>
-  );
-}
+// --- COMPONENTES UI ---
+const Card = ({ children, className = '' }) => (
+  <div className={`rounded-sm shadow-md border-t-4 border-[#369EAD] p-6 bg-white transition-all hover:shadow-lg ${className}`}>
+    {children}
+  </div>
+);
 
-function Button({ children, onClick, variant = 'primary', disabled = false, className = '' }) {
+const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '' }) => {
   const baseStyle = "px-6 py-2 rounded-sm font-sans font-medium tracking-widest uppercase text-xs transition-all transform active:scale-95 flex items-center justify-center gap-2";
   const variants = {
     primary: "bg-[#369EAD] text-white hover:bg-[#1A3A3E]",
@@ -118,15 +114,11 @@ function Button({ children, onClick, variant = 'primary', disabled = false, clas
     disabled: "bg-gray-100 text-gray-300 cursor-not-allowed"
   };
   return (
-    <button 
-      onClick={disabled ? null : onClick} 
-      className={`${baseStyle} ${disabled ? variants.disabled : variants[variant]} ${className}`} 
-      disabled={disabled}
-    >
+    <button onClick={disabled ? null : onClick} className={`${baseStyle} ${disabled ? variants.disabled : variants[variant]} ${className}`} disabled={disabled}>
       {children}
     </button>
   );
-}
+};
 
 // --- UTILIDADES ---
 const getHoursUntilClass = (dayIdx, timeStr) => {
@@ -145,23 +137,36 @@ const getHoursUntilClass = (dayIdx, timeStr) => {
   return diffMs / (1000 * 60 * 60);
 };
 
+const getISOWeekNumber = (date) => {
+  const tdt = new Date(date.valueOf());
+  const day = (date.getDay() + 6) % 7;
+  tdt.setDate(tdt.getDate() - day + 3);
+  const firstThursday = tdt.valueOf();
+  tdt.setMonth(0, 1);
+  if (tdt.getDay() !== 4) {
+    tdt.setMonth(0, 1 + ((4 - tdt.getDay()) + 7) % 7);
+  }
+  return 1 + Math.ceil((firstThursday - tdt) / 604800000);
+};
+
 const isClassInPast = (dayIdx, timeStr) => {
   const now = new Date();
   const currentDay = now.getDay(); 
   const [hours, minutes] = timeStr.split(':').map(Number);
   const currentTimeInMin = now.getHours() * 60 + now.getMinutes();
   const classTimeInMin = hours * 60 + minutes;
+
   if (currentDay > dayIdx) return true;
   if (currentDay === dayIdx && currentTimeInMin >= classTimeInMin) return true;
+  
   return false;
 };
 
 const getNextClassFromSchedule = (teacherName = null) => {
   let schedule = WEEKLY_SCHEDULE;
   if (teacherName) {
-    schedule = WEEKLY_SCHEDULE.filter(s => s.teacher.toUpperCase() === teacherName.toUpperCase());
+    schedule = WEEKLY_SCHEDULE.filter(s => s.teacher === teacherName);
   }
-  if (schedule.length === 0) return null;
   const diffs = schedule.map(s => ({
     ...s,
     diff: getHoursUntilClass(s.dayIdx, s.time)
@@ -173,53 +178,177 @@ const getCurrentMonthName = () => {
   return new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date()).toUpperCase();
 };
 
-// --- COMPONENTE: MODAL CAMBIO DE CLAVE ---
-function SelfChangePassModal({ onClose, onSave }) {
-  const [newPass, setNewPass] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function App() {
+  const [view, setView] = useState('login'); 
+  const [user, setUser] = useState(null);
+  const [students, setStudents] = useState([]);
+  const [sessionsData, setSessionsData] = useState({});
+  const [notification, setNotification] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [randomQuote, setRandomQuote] = useState("");
 
-  const handleSave = async () => {
-    if (!newPass.trim()) return;
-    setLoading(true);
-    try {
-      const success = await onSave(newPass);
-      if (success) onClose();
-    } catch (err) {
-      console.error("Error modal pass:", err);
-    } finally {
-      setLoading(false);
+  const showNotification = (msg, type = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  useEffect(() => {
+    setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
+    const startApp = async () => {
+      try { await signInAnonymously(auth); } catch (err) { console.error("Error Auth:", err); }
+
+      const unsubStudents = onSnapshot(collection(db, 'alumnas'), (snapshot) => {
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setStudents(list);
+        setLoading(false);
+      }, (err) => showNotification("Error al cargar alumnas", "error"));
+
+      const unsubSessions = onSnapshot(collection(db, 'sesiones'), (snapshot) => {
+        const data = {};
+        snapshot.docs.forEach(d => data[d.id] = d.data());
+        setSessionsData(data);
+      });
+
+      return () => { unsubStudents(); unsubSessions(); };
+    };
+    startApp();
+  }, []);
+
+  useEffect(() => {
+    if (user && user.role === 'student') {
+      const me = students.find(s => s.id === user.id);
+      if (me) setUser(prev => ({ ...prev, ...me }));
+    }
+  }, [students]);
+
+  const handleLogin = (idInput, passwordInput) => {
+    const cleanId = idInput.trim().toUpperCase();
+    const cleanPass = passwordInput.trim();
+    setError(null);
+
+    // ADMIN LOGIN CHECK
+    if (cleanId === 'ADMIN-JEN' || cleanId === 'JENNY') {
+      if (cleanPass === ADMIN_PASS) {
+        setUser({ firstName: 'JENNY', role: 'admin' });
+        setView('admin');
+        showNotification('Acceso Admin concedido');
+        return;
+      } else {
+        setError('Contraseña de Admin incorrecta.');
+        return;
+      }
+    }
+
+    // TEACHER LOGIN CHECK
+    if (cleanId === 'TEACHER-LUCY' || cleanId === 'LUCY') {
+      if (cleanPass === TEACHER_PASS) {
+        setUser({ firstName: 'LUCY', role: 'teacher' });
+        setView('teacher');
+        showNotification('Acceso Maestra concedido');
+        return;
+      } else {
+        setError('Contraseña de Maestra incorrecta.');
+        return;
+      }
+    }
+
+    // STUDENT LOGIN CHECK
+    const found = students.find(s => s.id.toUpperCase() === cleanId);
+
+    if (found) {
+      if (found.password && found.password !== cleanPass) {
+        setError('Contraseña incorrecta.');
+        return;
+      }
+      
+      if (found.status === 'inactive') {
+        setError('Cuenta inactiva. Contacta a Jenny.');
+        return;
+      }
+
+      setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
+      setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
+      setView('student');
+    } else {
+      setError('ID no encontrado o datos incorrectos.');
     }
   };
 
+  const handleBooking = async (sessionId) => {
+    const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
+    const sessionState = sessionsData[sessionId];
+    
+    if (isClassInPast(sessionConfig.dayIdx, sessionConfig.time)) {
+      showNotification('Esta clase ya ocurrió.', 'error');
+      return;
+    }
+
+    if (sessionState?.isClosed) { showNotification('Clase cerrada.', 'error'); return; }
+    if (user.credits <= 0) { showNotification('Sin créditos.', 'error'); return; }
+
+    try {
+      const studentRef = doc(db, 'alumnas', user.id);
+      const sessionRef = doc(db, 'sesiones', sessionId);
+      await updateDoc(studentRef, { 
+        credits: increment(-1), 
+        history: arrayUnion(sessionId)
+      });
+      await setDoc(sessionRef, { booked: increment(1) }, { merge: true });
+      showNotification('¡Clase reservada!');
+    } catch (err) { showNotification('Error al reservar', 'error'); }
+  };
+
+  const handleCancel = async (sessionId) => {
+    const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
+    const hoursRemaining = getHoursUntilClass(sessionConfig.dayIdx, sessionConfig.time);
+    const isLateCancellation = hoursRemaining < 6;
+
+    if (isLateCancellation && !window.confirm("Menos de 6h: El lugar se libera pero NO se devuelve crédito. ¿Continuar?")) return;
+
+    try {
+      const studentRef = doc(db, 'alumnas', user.id);
+      const sessionRef = doc(db, 'sesiones', sessionId);
+      if (!isLateCancellation) {
+        await updateDoc(studentRef, { 
+          credits: increment(1), 
+          history: arrayRemove(sessionId)
+        });
+      } else {
+        await updateDoc(studentRef, { history: arrayRemove(sessionId) });
+      }
+      await updateDoc(sessionRef, { booked: increment(-1) });
+      showNotification(isLateCancellation ? 'Lugar liberado (sin crédito)' : 'Clase cancelada.');
+    } catch (err) { showNotification('Error al cancelar', 'error'); }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setView('login');
+    setError(null);
+  };
+
+  if (loading) return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse bg-white italic">Validando seguridad...</div>;
+
   return (
-    <div className="fixed inset-0 bg-[#1A3A3E]/90 backdrop-blur-md z-[600] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD] animate-in zoom-in font-sans text-center">
-        <h3 className="text-xl font-serif italic mb-2">Cambiar mi contraseña</h3>
-        <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-6 italic">Define una clave que puedas recordar</p>
-        <div className="space-y-4">
-          <input 
-            type="text" 
-            className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-center font-bold font-sans text-sm" 
-            placeholder="Escribe tu nueva clave" 
-            value={newPass} 
-            onChange={e => setNewPass(e.target.value)} 
-          />
-          <Button 
-            disabled={loading || !newPass.trim()} 
-            onClick={handleSave} 
-            className="w-full !py-4"
-          >
-            {loading ? <Loader2 className="animate-spin"/> : "Guardar nueva clave"}
-          </Button>
-          <button onClick={onClose} className="text-[10px] uppercase font-bold text-gray-300 tracking-widest hover:text-red-400 transition-colors">Cancelar</button>
+    <div className="font-serif text-[#1A3A3E] antialiased bg-[#F8FAFC] min-h-screen">
+      {notification && (
+        <div className={`fixed top-4 right-4 z-[150] px-6 py-4 rounded-sm shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-4 duration-300 border-l-4 ${notification.type === 'error' ? 'bg-red-500 text-white border-red-700' : 'bg-[#1A3A3E] text-white border-[#369EAD]'}`}>
+          {notification.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
+          <span className="text-[10px] font-sans font-bold uppercase tracking-widest">{notification.msg}</span>
         </div>
-      </div>
+      )}
+      {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
+      {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
+      {view === 'admin' && <AdminDashboard students={students} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
+      {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
     </div>
   );
 }
 
-// --- VISTA: LOGIN ---
-function LoginView({ onLogin, error }) {
+// --- VISTAS ---
+
+const LoginView = ({ onLogin, error }) => {
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -232,12 +361,12 @@ function LoginView({ onLogin, error }) {
         <div className="bg-white/95 backdrop-blur-md p-8 md:p-12 rounded-sm shadow-2xl border-t-8 border-[#369EAD]">
           <div className="text-center mb-10">
             <h1 className="font-serif text-4xl text-[#1A3A3E] mb-1 italic font-bold">Ballet Fit</h1>
-            <span className="text-[10px] font-sans uppercase tracking-[0.4em] text-[#369EAD] font-bold font-black">Portal de alumnas</span>
+            <span className="text-[10px] font-sans uppercase tracking-[0.4em] text-[#369EAD] font-bold font-black">Acceso Seguro</span>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); onLogin(id, password); }} className="space-y-6">
             <div className="space-y-1">
               <label className="text-[9px] font-sans font-black uppercase text-gray-400 tracking-widest ml-1">ID o Usuario</label>
-              <input type="text" required placeholder="Código de estudiante" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-sans uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
+              <input type="text" required placeholder="JENNY / BF-001" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-sans uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
             </div>
             <div className="space-y-1 relative">
               <label className="text-[9px] font-sans font-black uppercase text-gray-400 tracking-widest ml-1">Contraseña</label>
@@ -247,39 +376,30 @@ function LoginView({ onLogin, error }) {
               </button>
             </div>
             {error && <div className="text-red-500 font-sans text-[10px] text-center font-bold animate-pulse leading-tight bg-red-50 p-2 rounded-sm border border-red-100">{error}</div>}
-            <div className="space-y-4">
-                <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 font-sans uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Entrar</button>
-                {/* MENSAJE RESTAURADO AQUÍ */}
-                <p className="text-[9px] text-center text-gray-400 uppercase tracking-widest font-bold px-4 leading-relaxed">En caso de no poder ingresar, contactar a Jenny</p>
-            </div>
+            <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 font-sans uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Entrar</button>
           </form>
         </div>
       </div>
     </div>
   );
-}
+};
 
-// --- VISTA: ALUMNA ---
-function StudentDashboard({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout, onUpdatePass }) {
-  const [showPassModal, setShowPassModal] = useState(false);
-  const myHistory = user?.history || [];
+const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout }) => {
+  const myHistory = user.history || [];
   const mySessions = sessions.filter(s => myHistory.includes(s.id));
   const nextClass = mySessions.length > 0 ? mySessions[0] : null;
   const currentMonth = getCurrentMonthName();
 
   return (
     <div className="pb-20">
-      <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-[64px] z-[50] w-full">
+      <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-2">
-          <div className="flex items-center gap-4">
-             <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
-             <button onClick={() => setShowPassModal(true)} className="text-gray-400 hover:text-[#369EAD] text-[9px] font-sans uppercase font-bold flex items-center gap-1 tracking-widest transition-colors"><Key size={14}/><span>Clave</span></button>
-          </div>
-          <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] font-sans uppercase font-bold flex items-center gap-2 tracking-widest transition-colors"><span>Salir</span><LogOut size={16} /></button>
+          <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
+          <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] font-sans uppercase font-bold flex items-center gap-2 tracking-widest"><span>Salir</span><LogOut size={16} /></button>
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 pt-32 pb-10">
+      <div className="max-w-6xl mx-auto px-6 py-10">
         <div className="mb-10 text-center md:text-left">
            <h2 className="text-4xl md:text-5xl font-serif italic text-[#1A3A3E] font-bold mb-2">¡Hola, {user.firstName}!</h2>
            <p className="text-[#369EAD] text-sm md:text-base font-sans uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
@@ -290,9 +410,14 @@ function StudentDashboard({ user, quote, sessions, sessionsData, onBook, onCance
         <div className="grid md:grid-cols-3 gap-8 mb-12">
           <Card className="md:col-span-2 flex flex-col justify-between">
             <div className="flex justify-between items-start mb-6">
-              <h3 className="text-2xl font-serif text-[#1A3A3E] italic">Resumen de {currentMonth}</h3>
-              <div className="p-3 rounded-full text-[#369EAD]"><Activity size={24} /></div>
+              <div>
+                <h3 className="text-2xl font-serif text-[#1A3A3E] italic">Resumen de {currentMonth}</h3>
+              </div>
+              <div className="p-3 rounded-full text-[#369EAD]">
+                <Activity size={24} />
+              </div>
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[#EBF5F6] px-6 py-4 rounded-sm border border-[#369EAD]/10">
                 <span className="block text-[9px] font-sans uppercase tracking-widest text-gray-500 font-bold mb-1">Clases del Mes</span>
@@ -323,6 +448,12 @@ function StudentDashboard({ user, quote, sessions, sessionsData, onBook, onCance
                 </div>
              ) : <p className="opacity-40 italic text-sm">Sin clases pendientes</p>}
           </Card>
+          <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center relative overflow-hidden group">
+                        <PartyPopper className="text-[#C5A059] mx-auto mb-4 animate-bounce" size={40} />
+                        <h3 className="text-2xl font-serif italic mb-2">¡Sigue creciendo!</h3>
+                        <p className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 leading-relaxed px-4">Cada alumna nueva es un paso más hacia tu sueño</p>
+                        <div className="absolute -bottom-4 -right-4 opacity-5 transform rotate-12"><TrendingUp size={120} /></div>
+          </Card>
         </div>
 
         <h3 className="text-xl mb-8 font-serif italic border-l-4 border-[#369EAD] pl-6">Cartelera de Clases</h3>
@@ -333,6 +464,7 @@ function StudentDashboard({ user, quote, sessions, sessionsData, onBook, onCance
             const isFull = (sessionState.booked || 0) >= s.spots;
             const isClosed = sessionState.isClosed;
             const isPast = isClassInPast(s.dayIdx, s.time); 
+            
             const canBook = user.credits > 0 && !isBooked && !isFull && !isClosed && !isPast;
             
             return (
@@ -340,7 +472,11 @@ function StudentDashboard({ user, quote, sessions, sessionsData, onBook, onCance
                 <div className="mb-6">
                   <div className="flex justify-between items-start font-sans">
                     <span className="text-[10px] uppercase font-black opacity-40">{s.day}</span>
-                    {isClosed ? <span className="bg-red-100 text-red-600 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Feriado</span> : isPast ? <span className="bg-gray-200 text-gray-500 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Finalizada</span> : null}
+                    {isClosed ? (
+                      <span className="bg-red-100 text-red-600 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Feriado</span>
+                    ) : isPast ? (
+                      <span className="bg-gray-200 text-gray-500 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Finalizada</span>
+                    ) : null}
                   </div>
                   <h4 className="text-3xl font-sans italic font-bold">{s.time}</h4>
                   <p className="text-[10px] font-sans text-[#369EAD] font-bold uppercase tracking-widest mt-1">{s.teacher}</p>
@@ -359,64 +495,119 @@ function StudentDashboard({ user, quote, sessions, sessionsData, onBook, onCance
           })}
         </div>
       </div>
-      {showPassModal && <SelfChangePassModal onClose={() => setShowPassModal(false)} onSave={onUpdatePass} />}
     </div>
   );
-}
+};
 
-// --- VISTA: ADMIN ---
-function AdminDashboard({ students, teachers, sessionsData, db, onLogout, showNotification }) {
+const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification }) => {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showStaffForm, setShowStaffForm] = useState(false);
   const [showPassModal, setShowPassModal] = useState(null); 
-  const [showStaffPassModal, setShowStaffPassModal] = useState(null);
   const [newPassValue, setNewPassValue] = useState("");
   const [newStudent, setNewStudent] = useState({ id: '', name: '', password: '', plan: '2 clases x sem', notes: '' });
-  const [newStaff, setNewStaff] = useState({ id: '', name: '', password: '', role: 'teacher' });
   const [saving, setSaving] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(null); 
   const [paymentAmount, setPaymentAmount] = useState(0);
   const currentMonth = getCurrentMonthName();
 
   const activeStudents = students.filter(s => s.status !== 'inactive');
+
+  const getNextAvailableId = (list) => {
+    const ids = list
+      .map(s => s.id)
+      .filter(id => id.startsWith('BF-'))
+      .map(id => parseInt(id.split('-')[1]))
+      .filter(num => !isNaN(num));
+    
+    const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+    const nextNum = maxId + 1;
+    return `BF-${String(nextNum).padStart(3, '0')}`;
+  };
+
+  useEffect(() => {
+    if (showAddForm) {
+      const nextId = getNextAvailableId(students);
+      setNewStudent(prev => ({ ...prev, id: nextId }));
+    }
+  }, [showAddForm, students]);
+
+  useEffect(() => {
+    const checkWeeklyReset = async () => {
+      const metadataRef = doc(db, 'artifacts', appId, 'public', 'metadata', 'settings');
+      const currentWeek = getISOWeekNumber(new Date());
+      
+      try {
+        const docSnap = await getDoc(metadataRef);
+        let lastResetWeek = 0;
+        
+        if (docSnap.exists()) {
+          lastResetWeek = docSnap.data().lastResetWeek || 0;
+        }
+
+        if (currentWeek !== lastResetWeek && students.length > 0) {
+          const batch = writeBatch(db);
+          activeStudents.forEach(s => {
+            const studentRef = doc(db, 'alumnas', s.id);
+            batch.update(studentRef, {
+              credits: s.maxCredits,
+              history: []
+            });
+          });
+          await setDoc(metadataRef, { lastResetWeek: currentWeek }, { merge: true });
+          await batch.commit();
+          showNotification('¡Créditos reiniciados para la nueva semana!', 'success');
+        }
+      } catch (err) {
+        console.error("Error in auto-reset:", err);
+      }
+    };
+
+    if (students.length > 0) {
+      checkWeeklyReset();
+    }
+  }, [students.length]);
+
   const nextSession = getNextClassFromSchedule();
-  const roster = students.filter(s => s.history?.includes(nextSession?.id) && s.status !== 'inactive');
+  const roster = students.filter(s => s.history?.includes(nextSession.id) && s.status !== 'inactive');
+
   const totalIncome = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
 
+  const toggleSessionStatus = async (sessionId, currentStatus) => {
+    await setDoc(doc(db, 'sesiones', sessionId), { isClosed: !currentStatus }, { merge: true });
+    showNotification('Estado actualizado');
+  };
+
   const handleMarkAttendance = async (studentId, sessionId) => {
-    if (!window.confirm("¿Confirmar asistencia?")) return;
+    if (!window.confirm("¿Confirmar asistencia? Esto sumará la clase al historial de la alumna.")) return;
     try {
       const studentRef = doc(db, 'alumnas', studentId);
       const sessionRef = doc(db, 'sesiones', sessionId);
-      await updateDoc(studentRef, { totalAttendance: increment(1), history: arrayRemove(sessionId) });
+      await updateDoc(studentRef, { 
+        totalAttendance: increment(1),
+        history: arrayRemove(sessionId) 
+      });
       await updateDoc(sessionRef, { booked: increment(-1) });
       showNotification('Asistencia confirmada');
     } catch (err) { console.error(err); }
   };
 
-  const handleToggleStatus = async (collectionName, id, currentStatus) => {
+  const handleToggleStatus = async (studentId, currentStatus) => {
     const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
-    if (!window.confirm(`¿Cambiar estatus de este registro?`)) return;
+    const msg = newStatus === 'inactive' ? "¿Dar de baja a esta alumna?" : "¿Activar cuenta de esta alumna?";
+    if (!window.confirm(msg)) return;
     try {
-      await updateDoc(doc(db, collectionName, id), { status: newStatus });
-      showNotification('Estatus actualizado');
+      await updateDoc(doc(db, 'alumnas', studentId), { status: newStatus });
+      showNotification(`Estado: ${newStatus === 'inactive' ? 'Baja' : 'Activa'}`);
     } catch (err) { console.error(err); }
   };
 
-  const handleToggleClass = async (sessionId, currentState) => {
+  const handleUpdatePassword = async () => {
+    if (!showPassModal || !newPassValue.trim()) return;
     try {
-      await setDoc(doc(db, 'sesiones', sessionId), { isClosed: !currentState }, { merge: true });
-      showNotification(currentState ? 'Clase habilitada' : 'Clase bloqueada por feriado');
-    } catch (err) { showNotification('Error al actualizar clase', 'error'); }
-  };
-
-  const handleUpdatePassword = async (collectionName, id) => {
-    if (!newPassValue.trim()) return;
-    try {
-      await updateDoc(doc(db, collectionName, id), { password: newPassValue.trim() });
+      await updateDoc(doc(db, 'alumnas', showPassModal), {
+        password: newPassValue.trim()
+      });
       showNotification('Contraseña actualizada');
       setShowPassModal(null);
-      setShowStaffPassModal(null);
       setNewPassValue("");
     } catch (err) { console.error(err); }
   };
@@ -424,229 +615,324 @@ function AdminDashboard({ students, teachers, sessionsData, db, onLogout, showNo
   const handleRegister = async (e) => {
     e.preventDefault();
     const cleanId = newStudent.id.trim().toUpperCase();
-    if (!cleanId || !newStudent.name || !newStudent.password) return;
+    if (!cleanId || !newStudent.name || !newStudent.password) {
+      showNotification('Completa todos los campos obligatorios', 'error');
+      return;
+    }
     setSaving(true);
     try {
-      await setDoc(doc(db, 'alumnas', cleanId), { ...newStudent, id: cleanId, name: newStudent.name.trim().toUpperCase(), maxCredits: parseInt(newStudent.plan.split(' ')[0]) || 2, credits: parseInt(newStudent.plan.split(' ')[0]) || 2, history: [], monthlyPayment: 0, totalAttendance: 0, status: 'active', registrationDate: new Date().toISOString() });
-      showNotification('Alumna registrada');
+      const docRef = doc(db, 'alumnas', cleanId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        showNotification(`ID ya usado por ${docSnap.data().name}`, 'error');
+        setSaving(false); return;
+      }
+      const max = parseInt(newStudent.plan.split(' ')[0]) || 2;
+      await setDoc(docRef, {
+        id: cleanId, 
+        name: newStudent.name.trim().toUpperCase(),
+        password: newStudent.password, 
+        plan: newStudent.plan, 
+        maxCredits: max, 
+        credits: max,
+        history: [], 
+        monthlyPayment: 0, 
+        totalAttendance: 0,
+        notes: newStudent.notes.trim(),
+        status: 'active', 
+        registrationDate: new Date().toISOString()
+      });
+      showNotification('Alumna registrada correctamente');
       setShowAddForm(false);
       setNewStudent({ id: '', name: '', password: '', plan: '2 clases x sem', notes: '' });
     } catch (err) { console.error(err); }
     setSaving(false);
   };
 
-  const handleRegisterStaff = async (e) => {
-    e.preventDefault();
-    const cleanId = newStaff.id.trim().toUpperCase();
-    if (!cleanId || !newStaff.name || !newStaff.password) return;
-    setSaving(true);
+  const handlePayment = async () => {
+    if (!showPaymentModal) return;
     try {
-      await setDoc(doc(db, 'maestros', cleanId), { ...newStaff, id: cleanId, name: newStaff.name.trim().toUpperCase(), status: 'active' });
-      showNotification('Maestro registrado');
-      setShowStaffForm(false);
-      setNewStaff({ id: '', name: '', password: '', role: 'teacher' });
+      await updateDoc(doc(db, 'alumnas', showPaymentModal), {
+        monthlyPayment: parseFloat(paymentAmount)
+      });
+      showNotification('Pago registrado');
+      setShowPaymentModal(null);
+      setPaymentAmount(0);
     } catch (err) { console.error(err); }
-    setSaving(false);
+  };
+
+  const resetCreditsManual = async (id, max) => {
+    if (window.confirm("¿Reiniciar semana manual? Se limpiarán los créditos.")) {
+      await updateDoc(doc(db, 'alumnas', id), { credits: max, history: [] });
+    }
   };
 
   return (
     <div className="pb-20">
-      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-[50] w-full border-t border-white/5">
+      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-3">
-          <span className="text-xl font-serif font-black tracking-tight uppercase italic">BF ADMIN</span>
+          <span className="text-xl font-serif font-black tracking-tight">BF ADMIN</span>
           <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
         </div>
-        <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest transition-opacity">Cerrar Sesión</button>
+        <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 pt-32 pb-12 space-y-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-sans text-center md:text-left">
-          <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white flex items-center gap-6 group">
-            <div className="p-4 bg-[#C5A059] rounded-sm text-[#1A3A3E] transition-transform group-hover:rotate-6"><DollarSign size={28} /></div>
-            <div><p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Caja {currentMonth}</p><p className="text-3xl font-bold text-[#C5A059]">${totalIncome.toLocaleString()}</p></div>
-          </Card>
-          <Card className="flex items-center gap-6 border-[#369EAD] group">
-            <div className="p-4 bg-[#369EAD] text-white rounded-sm transition-transform group-hover:scale-110"><Trophy size={28} /></div>
-            <div><p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Impacto</p><p className="text-3xl font-bold">{students.reduce((a,b) => a + (b.totalAttendance || 0), 0)} clases</p></div>
-          </Card>
-          <Card className="bg-[#EBF5F6] border-[#369EAD] flex items-center gap-6 lg:col-span-2">
-            <div className="p-4 bg-[#369EAD] rounded-sm text-white"><Users size={28} /></div>
-            <div><p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Activas / Staff</p><p className="text-3xl font-bold text-[#369EAD] font-sans">{activeStudents.length} Alumnas / {teachers.length} Staff</p></div>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-           <Card className="bg-[#EBF5F6] border-[#369EAD]">
-              <h3 className="text-xl font-serif font-bold italic text-[#1A3A3E] mb-6 flex items-center gap-2"><Tag size={20} className="text-[#369EAD]" /> Referencia de Precios</h3>
-              <div className="space-y-3 font-sans">
-                 {PRICES.map((p, idx) => (
-                   <div key={idx} className="flex justify-between items-center border-b border-[#369EAD]/10 pb-2 transition-all hover:translate-x-1">
-                     <span className="text-xs font-medium text-gray-600 uppercase tracking-tight">{p.plan}</span><span className="text-sm font-bold text-[#369EAD]">${p.price}</span>
-                   </div>
-                 ))}
+      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
+                  <ClipboardList size={20} /> Roster: Próxima Clase
+                </h3>
+                <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
+                  {nextSession.day} {nextSession.time}
+                </span>
+              </div>
+              
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {roster.length > 0 ? roster.map((alumna) => (
+                  <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
+                        <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
+                      </div>
+                      {alumna.notes && (
+                        <div className="mt-2 flex items-start gap-2 text-red-300">
+                          <Stethoscope size={12} className="mt-1 flex-shrink-0" />
+                          <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
+                      className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"
+                      title="Pasar Asistencia"
+                    >
+                      <Check size={18} />
+                    </button>
+                  </div>
+                )) : (
+                  <div className="text-center py-10 opacity-30 italic text-sm">Sin inscritas todavía</div>
+                )}
+              </div>
+              <div className="mt-6 pt-4 border-t border-white/10 flex justify-between items-center font-sans">
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest">Pendientes por llegar</span>
+                <span className="font-bold text-[#C5A059]">{roster.length}</span>
               </div>
            </Card>
-           <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center relative overflow-hidden group">
-              <PartyPopper className="text-[#C5A059] mx-auto mb-4 animate-bounce" size={40} />
-              <h3 className="text-2xl font-serif italic mb-2">¡Sigue creciendo!</h3>
-              <p className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 leading-relaxed px-4">Cada alumna nueva es un paso más hacia tu sueño</p>
-              <div className="absolute -bottom-4 -right-4 opacity-5 transform rotate-12"><TrendingUp size={120} /></div>
-           </Card>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-           <div className="lg:col-span-1 space-y-8">
-              <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
-                  <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
-                    <ClipboardList size={20} /> Roster: Próxima Clase
-                  </h3>
-                  {nextSession && (
-                    <span className="bg-white/10 px-3 py-1 rounded-sm text-[9px] font-sans font-bold uppercase tracking-widest whitespace-nowrap self-start sm:self-center">
-                      {nextSession.day} {nextSession.time}
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {roster.length > 0 ? roster.map((alumna) => (
-                    <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
-                      <div className="flex-1"><div className="flex justify-between items-start"><span className="font-serif italic font-bold text-sm">{alumna.name}</span><span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span></div></div>
-                      <button onClick={() => handleMarkAttendance(alumna.id, nextSession?.id)} className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"><Check size={18} /></button>
-                    </div>
-                  )) : <div className="text-center py-10 opacity-30 italic text-sm">Sin inscritas</div>}
+           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+              <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white flex items-center gap-6 group">
+                <div className="p-4 bg-[#C5A059] rounded-sm text-[#1A3A3E] transition-transform group-hover:rotate-6"><DollarSign size={28} /></div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Caja {currentMonth}</p>
+                  <p className="text-3xl font-bold text-[#C5A059]">${totalIncome.toLocaleString()}</p>
                 </div>
               </Card>
-              <Card>
-                <h3 className="text-xl font-serif italic text-[#1A3A3E] mb-6 flex items-center gap-2"><CalendarX size={20} className="text-[#369EAD]" /> Feriados</h3>
-                <div className="space-y-4 font-sans">
-                  {WEEKLY_SCHEDULE.map(s => {
-                    const isClosed = sessionsData[s.id]?.isClosed;
-                    return (
-                      <div key={s.id} className="flex justify-between items-center p-3 border border-gray-50 bg-gray-50/30 rounded-sm">
-                        <div><p className="text-xs font-bold">{s.day} {s.time}</p><p className="text-[9px] uppercase text-[#369EAD] font-bold">{s.teacher}</p></div>
-                        <button onClick={() => handleToggleClass(s.id, !!isClosed)} className={`flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase transition-all ${isClosed ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{isClosed ? <ToggleLeft size={18} /> : <ToggleRight size={18} />}{isClosed ? 'Bloqueado' : 'Abierto'}</button>
-                      </div>
-                    );
-                  })}
+              <Card className="flex items-center gap-6 border-[#369EAD] group">
+                <div className="p-4 bg-[#369EAD] text-white rounded-sm transition-transform group-hover:scale-110"><Trophy size={28} /></div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Impacto Total</p>
+                  <p className="text-3xl font-bold">{students.reduce((a,b) => a + (b.totalAttendance || 0), 0)} clases dadas</p>
+                </div>
+              </Card>
+              <Card className="bg-[#EBF5F6] border-[#369EAD] flex items-center gap-6 md:col-span-2">
+                <div className="p-4 bg-[#369EAD] rounded-sm text-white"><Users size={28} /></div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Comunidad Activa</p>
+                  <p className="text-3xl font-bold text-[#369EAD]">{activeStudents.length} Alumnas pagando</p>
                 </div>
               </Card>
            </div>
+        </div>
 
-           <div className="lg:col-span-2 space-y-8">
-              <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
-                <div className="p-6 border-b border-gray-50 bg-[#1A3A3E]/5 flex justify-between items-center">
-                  <h3 className="font-serif font-bold italic text-[#1A3A3E] flex items-center gap-2"><ShieldCheck size={20} className="text-[#369EAD]"/> Staff</h3>
-                  <Button onClick={() => setShowStaffForm(true)} className="!px-4 !py-2 !text-[9px]">Nuevo Staff</Button>
-                </div>
-                <div className="overflow-x-auto"><table className="w-full text-left"><thead className="bg-gray-50 text-[9px] uppercase text-gray-400 font-black"><tr><th className="px-6 py-4">Nombre / Rol</th><th className="px-6 py-4 text-center">Clave</th><th className="px-6 py-4 text-right pr-10">Acciones</th></tr></thead><tbody className="divide-y divide-gray-50">{teachers.map((t) => (<tr key={t.id} className={`hover:bg-gray-50 text-sm ${t.status === 'inactive' ? 'opacity-40' : ''}`}><td className="px-6 py-4"><div className="flex items-center gap-3"><div className={`w-2 h-2 rounded-full ${t.role === 'admin' ? 'bg-[#C5A059]' : 'bg-[#369EAD]'}`}></div><div><div className="font-bold font-serif italic">{t.name}</div><div className="text-[9px] uppercase font-black text-gray-400">{t.role}</div></div></div></td><td className="px-6 py-4 text-center font-sans font-bold text-[#C5A059]">{t.password}</td><td className="px-6 py-4 text-right pr-8 space-x-1"><button onClick={() => setShowStaffPassModal(t.id)} className="p-2 text-gray-300 hover:text-[#C5A059]"><Key size={16}/></button><button onClick={() => handleToggleStatus('maestros', t.id, t.status)} className={`p-2 rounded-full ${t.status === 'inactive' ? 'text-green-500' : 'text-red-400'}`}>{t.status === 'inactive' ? <UserCheck size={16}/> : <UserX size={16}/>}</button></td></tr>))}</tbody></table></div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="lg:col-span-1 space-y-6">
+            <Card className="bg-white border-[#C5A059]">
+              <h3 className="text-lg font-serif italic font-bold mb-4 flex items-center gap-2 text-[#1A3A3E]"><Info size={18} className="text-[#C5A059]" /> Tarifario</h3>
+              <div className="space-y-3 font-sans">
+                {PRICES.map((p, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-[11px] border-b border-gray-50 pb-2">
+                    <span className="text-gray-400 uppercase font-bold">{p.plan}</span>
+                    <span className="font-bold text-[#369EAD]">${p.price}</span>
+                  </div>
+                ))}
               </div>
+            </Card>
 
-              <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
-                <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center"><h3 className="font-serif font-bold italic text-[#1A3A3E]">Alumnas</h3><Button onClick={() => setShowAddForm(true)} className="!px-4 !py-2 !text-[9px]">Nueva Alumna</Button></div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 font-black">
-                      <tr>
-                        <th className="px-6 py-4">Nombre / ID</th>
-                        <th className="px-6 py-4 text-center">Créditos</th>
-                        <th className="px-6 py-4 text-center">Asist.</th>
-                        <th className="px-6 py-4 text-center">Pago</th>
-                        <th className="px-6 py-4 text-right pr-10">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {students.map((s) => (
-                        <tr key={s.id} className={`hover:bg-gray-50 text-sm ${s.status === 'inactive' ? 'opacity-40' : ''}`}>
-                          <td className="px-6 py-4">
-                            <div>
-                              <div className="font-bold font-serif italic">{s.name}</div>
-                              <div className="text-[9px] text-gray-400 uppercase font-black">ID: {s.id} • Pass: {s.password}</div>
+            <Card className="bg-white border-[#369EAD]">
+              <h3 className="text-lg font-serif italic font-bold mb-4">Estatus Clases</h3>
+              <div className="space-y-4 font-sans">
+                {WEEKLY_SCHEDULE.map(s => {
+                  const isClosed = sessionsData[s.id]?.isClosed || false;
+                  return (
+                    <div key={s.id} className="flex justify-between items-center text-xs">
+                      <span className="font-bold opacity-60 uppercase tracking-tighter">{s.day}</span>
+                      <button onClick={() => toggleSessionStatus(s.id, isClosed)}>
+                        {isClosed ? <ToggleLeft size={30} className="text-red-300" /> : <ToggleRight size={30} className="text-[#369EAD]" />}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
+              <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
+                <h3 className="font-serif font-bold italic text-[#1A3A3E]">Control de Alumnas e Historial</h3>
+                <div className="flex gap-2">
+                    <span className="text-[9px] font-sans font-bold uppercase flex items-center gap-1 opacity-50"><Users size={12}/> Total Registros: {students.length}</span>
+                    <Button onClick={() => setShowAddForm(true)} className="!px-4 !py-2 !text-[9px]">Registrar</Button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 tracking-widest font-black font-sans">
+                    <tr>
+                      <th className="px-6 py-5">Identificación / Nombre</th>
+                      <th className="px-6 py-5 text-center">Créditos</th>
+                      <th className="px-6 py-5 text-center">Histórico</th>
+                      <th className="px-6 py-5 text-center">Pago {currentMonth}</th>
+                      <th className="px-6 py-5 text-right pr-10">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {students.map((s) => {
+                      const isInactive = s.status === 'inactive';
+                      return (
+                        <tr key={s.id} className={`hover:bg-gray-50 transition-all text-sm group ${isInactive ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                          <td className="px-6 py-5">
+                            <div className="flex flex-col md:flex-row md:items-center gap-3">
+                              <span className="text-[10px] font-sans font-black text-[#369EAD] bg-[#EBF5F6] px-2 py-0.5 rounded-sm border border-[#369EAD]/10 w-fit">{s.id}</span>
+                              <div>
+                                 <div className="font-bold font-serif italic text-[#1A3A3E]">{s.name}</div>
+                                 <div className="text-[9px] text-gray-400 font-sans mt-1">
+                                   Clave actual: <span className="font-bold text-[#C5A059]">{s.password || '---'}</span>
+                                 </div>
+                                 {isInactive ? (
+                                    <span className="text-[8px] uppercase font-bold text-red-400 bg-red-50 px-1 rounded-sm">Baja / Inactiva</span>
+                                 ) : s.notes && (
+                                    <div className="text-[10px] text-red-400 italic font-sans flex items-center gap-1 mt-1"><Stethoscope size={10}/> {s.notes}</div>
+                                 )}
+                              </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-center font-sans font-bold text-[#369EAD]">{s.credits} / {s.maxCredits}</td>
-                          <td className="px-6 py-4 text-center">
-                            <span className="flex items-center justify-center gap-1 font-sans font-bold text-gray-500">
-                              <Medal size={12} className="text-[#C5A059]" /> {s.totalAttendance || 0}
-                            </span>
+                          <td className="px-6 py-5 text-center font-sans">
+                            <span className={`font-bold ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>
+                            <span className="text-gray-300 text-xs italic"> / {s.maxCredits}</span>
                           </td>
-                          <td className="px-6 py-4 text-center">
-                            <button onClick={() => { setShowPaymentModal(s.id); setPaymentAmount(s.monthlyPayment || 0); }} className="font-sans font-bold text-green-600 bg-green-50 px-3 py-1 rounded text-xs transition-colors hover:bg-green-100">${s.monthlyPayment || 0}</button>
+                          <td className="px-6 py-5 text-center font-sans">
+                            <span className="text-xs bg-[#1A3A3E] text-white px-2 py-1 rounded-sm font-bold shadow-sm">{s.totalAttendance || 0}</span>
                           </td>
-                          <td className="px-6 py-4 text-right pr-8 space-x-1">
-                            <button onClick={() => setShowPassModal(s.id)} className="p-2 text-gray-300 hover:text-[#C5A059]"><Key size={16}/></button>
-                            <button onClick={() => handleToggleStatus('alumnas', s.id, s.status)} className="p-2 text-gray-300 hover:text-red-400">{s.status === 'inactive' ? <UserCheck size={16}/> : <UserX size={16}/>}</button>
-                            <button onClick={() => { if(window.confirm(`¿Borrar a ${s.name}?`)) deleteDoc(doc(db, 'alumnas', s.id)) }} className="p-2 text-red-100 hover:text-red-500"><Trash2 size={16}/></button>
+                          <td className="px-6 py-5 text-center">
+                            <button onClick={() => { setShowPaymentModal(s.id); setPaymentAmount(s.monthlyPayment || 0); }}
+                              className={`font-bold font-sans px-3 py-1 rounded text-xs transition-colors ${s.monthlyPayment > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
+                              ${s.monthlyPayment || 0}
+                            </button>
+                          </td>
+                          <td className="px-6 py-5 text-right pr-8 space-x-1">
+                            <button onClick={() => setShowPassModal(s.id)} className="p-2 text-gray-400 hover:text-[#C5A059] transition-all" title="Gestionar Clave">
+                              <Key size={16} />
+                            </button>
+                            <button onClick={() => handleToggleStatus(s.id, s.status)} className={`p-2 rounded-full transition-all ${isInactive ? 'text-green-500 hover:bg-green-50' : 'text-gray-300 hover:text-red-400 hover:bg-red-50'}`} title={isInactive ? "Dar de Alta" : "Dar de Baja"}>
+                              {isInactive ? <UserCheck size={16}/> : <UserX size={16}/>}
+                            </button>
+                            <button onClick={() => resetCreditsManual(s.id, s.maxCredits)} className="p-2 text-[#C5A059] hover:bg-amber-50 rounded-full transition-transform hover:scale-110"><Clock size={16}/></button>
+                            <button onClick={() => { if(window.confirm(`¿Borrar permanentemente a ${s.name}? Se perderá todo su historial.`)) deleteDoc(doc(db, 'alumnas', s.id)) }} className="p-2 text-red-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-           </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {(showAddForm || showStaffForm) && (
-        <div className="fixed inset-0 bg-[#1A3A3E]/90 backdrop-blur-md z-[500] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] font-sans">
-            <button onClick={() => { setShowAddForm(false); setShowStaffForm(false); }} className="absolute top-6 right-6 text-gray-400 hover:text-red-500"><X size={28} /></button>
-            <h3 className="text-2xl font-serif italic mb-6 border-b pb-2">{showAddForm ? 'Nueva Alumna' : 'Nuevo Maestro'}</h3>
-            <form onSubmit={showAddForm ? handleRegister : handleRegisterStaff} className="space-y-6">
+      {showPassModal && (
+        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#C5A059] animate-in zoom-in font-sans text-center">
+            <h3 className="text-xl font-serif italic mb-2">Gestionar Contraseña</h3>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-6">Alumna: {showPassModal}</p>
+            <div className="space-y-4">
+              <input type="text" className="w-full p-4 bg-gray-50 border-b border-gray-200 outline-none text-center font-bold font-sans" placeholder="Nueva clave" value={newPassValue} onChange={e => setNewPassValue(e.target.value)} />
+              <Button onClick={handleUpdatePassword} className="w-full !py-4 font-bold">Actualizar</Button>
+              <button onClick={() => { setShowPassModal(null); setNewPassValue(""); }} className="text-[10px] uppercase font-bold text-gray-300 tracking-widest hover:text-red-400">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddForm && (
+        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in font-sans">
+            <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500"><X size={28} /></button>
+            <h3 className="text-2xl font-serif italic mb-6 border-b pb-2">Nueva Alumna</h3>
+            <form onSubmit={handleRegister} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <input type="text" required placeholder="ID" className="p-4 bg-gray-50 outline-none uppercase text-xs font-bold border-b border-gray-100 focus:border-[#369EAD]" value={showAddForm ? newStudent.id : newStaff.id} onChange={e => showAddForm ? setNewStudent({...newStudent, id: e.target.value}) : setNewStaff({...newStaff, id: e.target.value})} />
-                <input type="text" required placeholder="CONTRASEÑA" className="p-4 bg-gray-50 outline-none text-xs font-bold border-b border-gray-100 focus:border-[#369EAD]" value={showAddForm ? newStudent.password : newStaff.password} onChange={e => showAddForm ? setNewStudent({...newStudent, password: e.target.value}) : setNewStaff({...newStaff, password: e.target.value})} />
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">ID (Sugerido)</label>
+                  <input type="text" required className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm font-bold text-[#369EAD]" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Contraseña Inicial</label>
+                  <input type="text" required placeholder="Ej. 1234" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-sm font-bold" value={newStudent.password} onChange={e => setNewStudent({...newStudent, password: e.target.value})} />
+                </div>
               </div>
-              <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 outline-none uppercase text-xs font-serif italic border-b border-gray-100 focus:border-[#369EAD]" value={showAddForm ? newStudent.name : newStaff.name} onChange={e => showAddForm ? setNewStudent({...newStudent, name: e.target.value}) : setNewStaff({...newStaff, name: e.target.value})} />
-              {showAddForm && (
-                <select className="w-full p-4 bg-gray-50 outline-none text-xs border-b border-gray-100 focus:border-[#369EAD]" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
-                  {PRICES.map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
-                </select>
-              )}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Nombre Completo</label>
+                <input type="text" required placeholder="NOMBRE" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm font-serif italic font-bold" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+              </div>
+              <select className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-sm" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
+                {PRICES.slice(0, 4).map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
+              </select>
+              <textarea placeholder="NOTAS MÉDICAS O LESIONES (OPCIONAL)" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-xs h-24 italic" value={newStudent.notes} onChange={e => setNewStudent({...newStudent, notes: e.target.value})} />
               <Button disabled={saving} className="w-full !py-4 font-bold">{saving ? <Loader2 className="animate-spin" /> : "Guardar Registro"}</Button>
             </form>
           </div>
         </div>
       )}
 
-      {(showPassModal || showStaffPassModal) && typeof showPassModal === 'string' && (
-        <div className="fixed inset-0 bg-[#1A3A3E]/90 z-[500] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs p-8 rounded-sm text-center font-sans border-t-8 border-[#C5A059] shadow-2xl">
-            <h3 className="text-xl font-serif italic mb-6">Actualizar Clave</h3>
-            <input type="text" className="w-full p-4 bg-gray-50 outline-none text-center font-bold mb-6 border-b border-gray-100" placeholder="Nueva Clave" value={newPassValue} onChange={e => setNewPassValue(e.target.value)} />
-            <Button onClick={() => handleUpdatePassword(showPassModal ? 'alumnas' : 'maestros', showPassModal || showStaffPassModal)} className="w-full mb-2">Guardar</Button>
-            <button onClick={() => { setShowPassModal(null); setShowStaffPassModal(null); }} className="text-[10px] uppercase font-bold text-gray-300 hover:text-red-400">Cancelar</button>
-          </div>
-        </div>
-      )}
-
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-[#1A3A3E]/90 z-[500] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs p-8 rounded-sm text-center font-sans border-t-8 border-green-500 shadow-2xl">
-            <h3 className="text-xl font-serif italic mb-6">Registrar Pago</h3>
-            <input type="number" className="w-full p-4 bg-gray-50 outline-none text-center font-bold mb-6 border-b border-gray-100" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
-            <Button onClick={async () => { try { await updateDoc(doc(db, 'alumnas', showPaymentModal), { monthlyPayment: parseFloat(paymentAmount) }); showNotification('Pago registrado'); setShowPaymentModal(null); } catch (e) {}}} className="w-full mb-2">Confirmar</Button>
-            <button onClick={() => setShowPaymentModal(null)} className="text-[10px] uppercase font-bold text-gray-300 hover:text-red-400 transition-colors">Cerrar</button>
+        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#C5A059] animate-in zoom-in font-sans">
+            <h3 className="text-xl font-serif italic mb-6 text-center">Registrar Pago</h3>
+            <div className="space-y-4 text-center">
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input type="number" className="w-full p-4 pl-10 bg-gray-50 border-b border-gray-200 outline-none text-xl font-bold font-sans" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
+              </div>
+              <Button onClick={handlePayment} className="w-full !py-4 font-bold">Confirmar</Button>
+              <button onClick={() => setShowPaymentModal(null)} className="text-[10px] uppercase font-bold text-gray-300 tracking-widest hover:text-red-400">Cancelar</button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
-}
+};
 
-function TeacherDashboard({ user, students, sessionsData, db, onLogout, showNotification, onUpdatePass }) {
-  const [showPassModal, setShowPassModal] = useState(false);
+// --- VISTA MAESTRA (LUCY) ---
+const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNotification }) => {
   const currentMonth = getCurrentMonthName();
-  const teacherClasses = WEEKLY_SCHEDULE.filter(s => s.teacher.toUpperCase() === user.firstName.toUpperCase());
+  const teacherClasses = WEEKLY_SCHEDULE.filter(s => s.teacher === user.firstName);
   const nextSession = getNextClassFromSchedule(user.firstName);
   const roster = students.filter(s => s.history?.includes(nextSession?.id) && s.status !== 'inactive');
 
   const handleMarkAttendance = async (studentId, sessionId) => {
-    if (!window.confirm("¿Confirmar asistencia?")) return;
+    if (!window.confirm("¿Confirmar asistencia de la alumna?")) return;
     try {
       const studentRef = doc(db, 'alumnas', studentId);
       const sessionRef = doc(db, 'sesiones', sessionId);
-      await updateDoc(studentRef, { totalAttendance: increment(1), history: arrayRemove(sessionId) });
+      await updateDoc(studentRef, { 
+        totalAttendance: increment(1),
+        history: arrayRemove(sessionId) 
+      });
       await updateDoc(sessionRef, { booked: increment(-1) });
       showNotification('Asistencia marcada');
     } catch (err) { console.error(err); }
@@ -654,148 +940,93 @@ function TeacherDashboard({ user, students, sessionsData, db, onLogout, showNoti
 
   return (
     <div className="pb-20">
-      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-[50] font-sans w-full border-t border-white/5">
-        <div className="flex items-center gap-4">
-          <span className="text-xl font-serif font-black tracking-tight uppercase">Staff</span>
-          <button onClick={() => setShowPassModal(true)} className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-[8px] font-sans font-black uppercase tracking-widest flex items-center gap-1 transition-colors"><Key size={10}/><span>Mi Clave</span></button>
+      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
+        <div className="flex items-center gap-3">
+          <span className="text-xl font-serif font-black tracking-tight uppercase">Portal Maestra</span>
+          <span className="bg-[#369EAD] text-white text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{user.firstName}</span>
         </div>
-        <div className="flex items-center gap-3"><span className="bg-[#369EAD] text-white text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{user.firstName}</span><button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest transition-opacity">Cerrar Sesión</button></div>
+        <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 pt-32 py-12 space-y-12">
-        <div className="mb-10 text-center md:text-left"><h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">¡Hola, {user.firstName}!</h2><p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Maestra de Ballet Fit</p></div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          <Card className="bg-white border-[#C5A059] flex items-center gap-6"><div className="p-4 bg-[#C5A059] text-[#1A3A3E] rounded-sm"><BookOpen size={28} /></div><div><p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Disciplina</p><p className="text-2xl font-serif italic font-bold">Ballet Fit Master</p></div></Card>
-          <Card className="bg-[#EBF5F6] border-[#369EAD] flex items-center gap-6"><div className="p-4 bg-[#369EAD] text-white rounded-sm"><Trophy size={28} /></div><div><p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Enseñanza</p><p className="text-3xl font-bold text-[#369EAD] font-sans">Enseñando este mes</p></div></Card>
+      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+        <div className="mb-10 text-center md:text-left">
+           <h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">¡Hola, {user.firstName}!</h2>
+           <p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Lista para tu próxima clase</p>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+          <Card className="bg-white border-[#C5A059] flex items-center gap-6">
+              <div className="p-4 bg-[#C5A059] text-[#1A3A3E] rounded-sm"><BookOpen size={28} /></div>
+              <div>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Disciplina</p>
+              <p className="text-2xl font-serif italic font-bold">Ballet Fit Master</p>
+            </div>
+          </Card>
+          <Card className="bg-[#EBF5F6] border-[#369EAD] flex items-center gap-6">
+            <div className="p-4 bg-[#369EAD] text-white rounded-sm"><Trophy size={28} /></div>
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Asistencia</p>
+              <p className="text-3xl font-bold text-[#369EAD] font-sans">Total alumnas marcadas</p>
+            </div>
+          </Card>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
-              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-6">
+              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
-                  <ClipboardList size={20} /> Roster: Próxima Clase
+                  <ClipboardList size={20} /> Asistencia: Próxima Clase
                 </h3>
                 {nextSession && (
-                  <span className="bg-white/10 px-3 py-1 rounded-sm text-[9px] font-sans font-bold uppercase tracking-widest whitespace-nowrap self-start sm:self-center">
+                  <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
                     {nextSession.day} {nextSession.time}
                   </span>
                 )}
               </div>
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar font-sans">{roster.length > 0 ? roster.map((alumna) => (<div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 flex justify-between items-center gap-4"><div className="flex-1"><div className="font-serif italic font-bold text-sm">{alumna.name}</div></div><button onClick={() => handleMarkAttendance(alumna.id, nextSession?.id)} className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"><Check size={18} /></button></div>)) : <div className="text-center py-10 opacity-30 italic text-sm">No hay alumnas aún</div>}</div>
+              
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {roster.length > 0 ? roster.map((alumna) => (
+                  <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
+                    <div className="flex-1">
+                      <div className="font-serif italic font-bold text-sm">{alumna.name}</div>
+                      {alumna.notes && (
+                        <div className="mt-2 flex items-start gap-2 text-red-300">
+                          <Stethoscope size={12} className="mt-1 flex-shrink-0" />
+                          <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
+                      className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"
+                    >
+                      <Check size={18} />
+                    </button>
+                  </div>
+                )) : (
+                  <div className="text-center py-10 opacity-30 italic text-sm">No hay alumnas inscritas aún</div>
+                )}
+              </div>
            </Card>
-           <div className="lg:col-span-2 space-y-8"><Card className="bg-white"><h3 className="text-xl font-serif italic font-bold mb-6 flex items-center gap-2 text-[#1A3A3E]"><Calendar size={20} className="text-[#369EAD]" /> Horario</h3><div className="grid grid-cols-1 gap-4 font-sans text-center md:text-left">{teacherClasses.map(s => (<div key={s.id} className="p-8 bg-gray-50 rounded-sm border-l-8 border-[#369EAD] flex flex-col justify-center"><span className="text-xs font-sans font-black uppercase text-gray-400 tracking-widest">{s.day}</span><p className="text-4xl font-sans font-bold text-[#1A3A3E] my-1">{s.time}</p><p className="text-sm text-[#369EAD] font-bold uppercase tracking-[0.2em]">{s.type}</p></div>))}</div></Card></div>
+
+           <div className="lg:col-span-2 space-y-8">
+              <Card className="bg-white">
+                <h3 className="text-xl font-serif italic font-bold mb-6 flex items-center gap-2 text-[#1A3A3E]">
+                  <Calendar size={20} className="text-[#369EAD]" /> Clase del viernes 7:00 PM
+                </h3>
+                <div className="grid grid-cols-1 gap-4">
+                   {teacherClasses.map(s => (
+                      <div key={s.id} className="p-10 bg-gray-50 rounded-sm border-l-8 border-[#369EAD] flex flex-col justify-center">
+                         <span className="text-xs font-sans font-black uppercase text-gray-400 tracking-widest">{s.day}</span>
+                         <p className="text-5xl font-sans font-bold text-[#1A3A3E] my-2">{s.time}</p>
+                         <p className="text-sm text-[#369EAD] font-bold uppercase tracking-[0.2em]">{s.type}</p>
+                      </div>
+                   ))}
+                </div>
+              </Card>
+           </div>
         </div>
       </div>
-      {showPassModal && <SelfChangePassModal onClose={() => setShowPassModal(false)} onSave={onUpdatePass} />}
     </div>
   );
-}
-
-export default function App() {
-  const [view, setView] = useState('login'); 
-  const [user, setUser] = useState(null);
-  const [students, setStudents] = useState([]);
-  const [teachers, setTeachers] = useState([]);
-  const [sessionsData, setSessionsData] = useState({});
-  const [notification, setNotification] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [randomQuote, setRandomQuote] = useState("");
-
-  const showNotification = (msg, type = 'success') => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
-
-  const handleSelfPasswordUpdate = async (newPass) => {
-    if (!user?.id) return false;
-    const collectionName = user.role === 'student' ? 'alumnas' : 'maestros';
-    try {
-      await updateDoc(doc(db, collectionName, user.id), { password: newPass });
-      showNotification('Tu contraseña ha sido actualizada');
-      return true;
-    } catch (err) {
-      showNotification('Error al actualizar contraseña', 'error');
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
-    const startApp = async () => {
-      try { await signInAnonymously(auth); } catch (err) {}
-      onSnapshot(collection(db, 'alumnas'), (snapshot) => {
-        setStudents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      });
-      onSnapshot(collection(db, 'maestros'), (snapshot) => {
-        setTeachers(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-      onSnapshot(collection(db, 'sesiones'), (snapshot) => {
-        const data = {};
-        snapshot.docs.forEach(d => data[d.id] = d.data());
-        setSessionsData(data);
-      });
-    };
-    startApp();
-  }, []);
-
-  const handleLogin = (idInput, passwordInput) => {
-    const cleanId = idInput.trim().toUpperCase();
-    const cleanPass = passwordInput.trim();
-    setError(null);
-    const teacherFound = teachers.find(t => t.id === cleanId);
-    if (teacherFound) {
-      if (teacherFound.password === cleanPass) {
-        if (teacherFound.status === 'inactive') { setError('Cuenta desactivada.'); return; }
-        setUser({ ...teacherFound, firstName: teacherFound.name.split(' ')[0], role: teacherFound.role });
-        setView(teacherFound.role === 'admin' ? 'admin' : 'teacher');
-        return;
-      } else { setError('Contraseña de staff incorrecta.'); return; }
-    }
-    const found = students.find(s => s.id.toUpperCase() === cleanId);
-    if (found) {
-      if (found.password && found.password !== cleanPass) { setError('Contraseña incorrecta.'); return; }
-      if (found.status === 'inactive') { setError('Cuenta inactiva.'); return; }
-      setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
-      setView('student');
-    } else { setError('ID no encontrado.'); }
-  };
-
-  const handleBooking = async (sessionId) => {
-    const sConf = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
-    if (isClassInPast(sConf.dayIdx, sConf.time) || sessionsData[sessionId]?.isClosed || user.credits <= 0) return;
-    try {
-      await updateDoc(doc(db, 'alumnas', user.id), { credits: increment(-1), history: arrayUnion(sessionId) });
-      await setDoc(doc(db, 'sesiones', sessionId), { booked: increment(1) }, { merge: true });
-      showNotification('¡Clase reservada!');
-    } catch (err) {}
-  };
-
-  const handleCancel = async (sessionId) => {
-    const sConf = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
-    const isLate = getHoursUntilClass(sConf.dayIdx, sConf.time) < 6;
-    if (isLate && !window.confirm("Menos de 6h: El lugar se libera pero NO se devuelve crédito. ¿Continuar?")) return;
-    try {
-      await updateDoc(doc(db, 'alumnas', user.id), { credits: isLate ? increment(0) : increment(1), history: arrayRemove(sessionId) });
-      await updateDoc(doc(db, 'sesiones', sessionId), { booked: increment(-1) });
-      showNotification(isLate ? 'Lugar liberado (sin crédito)' : 'Clase cancelada.');
-    } catch (err) {}
-  };
-
-  if (loading) return <div className="h-screen flex items-center justify-center font-serif text-[#369EAD] animate-pulse bg-white italic text-xl">Ballet Fit...</div>;
-
-  return (
-    <div className="font-serif text-[#1A3A3E] antialiased bg-[#F8FAFC] min-h-screen">
-      {notification && (
-        <div className={`fixed top-4 right-4 z-[150] px-6 py-4 rounded-sm shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-4 duration-300 border-l-4 ${notification.type === 'error' ? 'bg-red-500 text-white border-red-700' : 'bg-[#1A3A3E] text-white border-[#369EAD]'}`}>
-          {notification.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
-          <span className="text-[10px] font-sans font-bold uppercase tracking-widest">{notification.msg}</span>
-        </div>
-      )}
-      {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
-      {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={() => {setUser(null); setView('login');}} onUpdatePass={handleSelfPasswordUpdate} />}
-      {view === 'admin' && <AdminDashboard students={students} teachers={teachers} sessionsData={sessionsData} db={db} onLogout={() => {setUser(null); setView('login');}} showNotification={showNotification} />}
-      {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} onLogout={() => {setUser(null); setView('login');}} showNotification={showNotification} onUpdatePass={handleSelfPasswordUpdate} />}
-    </div>
-  );
-}
+};

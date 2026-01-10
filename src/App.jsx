@@ -325,6 +325,13 @@ export default function App() {
   const handleCancel = async (sessionId) => {
     if (!auth.currentUser) return;
     const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
+    
+    // BLOQUEO LÓGICO: Si la clase ya pasó, no se permite cancelar
+    if (isClassInPast(sessionConfig.dayIdx, sessionConfig.time)) {
+      showNotification('No se puede cancelar una clase que ya finalizó.', 'error');
+      return;
+    }
+
     const hoursRemaining = getHoursUntilClass(sessionConfig.dayIdx, sessionConfig.time);
     const isLateCancellation = hoursRemaining < 6;
 
@@ -504,7 +511,10 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
                 <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-50 font-sans">
                   <span className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1"><Users size={12} /> {sessionState.booked || 0}/{s.spots}</span>
                   {isBooked ? 
-                    <button onClick={() => onCancel(s.id)} className="text-[10px] text-red-400 font-bold uppercase underline underline-offset-8 decoration-red-100">Cancelar</button> :
+                    (isPast ? 
+                      <span className="text-[9px] text-[#369EAD] font-bold uppercase italic opacity-60">Asistencia registrada</span> :
+                      <button onClick={() => onCancel(s.id)} className="text-[10px] text-red-400 font-bold uppercase underline underline-offset-8 decoration-red-100">Cancelar</button>
+                    ) :
                     <Button onClick={() => onBook(s.id)} disabled={!canBook} className="!px-4 !py-2 !text-[9px]">
                       {isClosed ? 'Cerrado' : isPast ? 'Pasada' : isFull ? 'Lleno' : 'Reservar'}
                     </Button>
@@ -570,6 +580,8 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, appId, onLogout,
 
         if (currentWeek !== lastResetWeek && students.length > 0) {
           const batch = writeBatch(db);
+          
+          // 1. Reiniciar créditos e historial de las alumnas
           activeStudents.forEach(s => {
             const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', s.id);
             batch.update(studentRef, {
@@ -577,9 +589,17 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, appId, onLogout,
               history: []
             });
           });
+
+          // 2. MODIFICACIÓN: Reiniciar los cupos de las clases para la nueva semana
+          // Esto hace que las clases marcadas como "Finalizadas" vuelvan a estar disponibles (booked: 0)
+          WEEKLY_SCHEDULE.forEach(session => {
+            const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', session.id);
+            batch.set(sessionRef, { booked: 0 }, { merge: true });
+          });
+
           await setDoc(metadataRef, { lastResetWeek: currentWeek }, { merge: true });
           await batch.commit();
-          showNotification('¡Créditos reiniciados para la nueva semana!', 'success');
+          showNotification('¡Semana reiniciada: Cupos y créditos disponibles!', 'success');
         }
       } catch (err) {
         console.error("Error in auto-reset:", err);

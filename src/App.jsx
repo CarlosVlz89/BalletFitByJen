@@ -444,7 +444,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
             
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[#EBF5F6] px-6 py-4 rounded-sm border border-[#369EAD]/10">
-                <span className="block text-[9px] font-sans uppercase tracking-widest text-gray-500 font-bold mb-1">Clases del Mes</span>
+                <span className="block text-[9px] font-sans uppercase tracking-widest text-gray-500 font-bold mb-1">Clases de la semana</span>
                 <div className="flex items-baseline gap-1 font-sans">
                   <span className={`text-4xl font-bold ${user.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{user.credits}</span>
                   <span className="text-gray-300 text-lg">/ {user.maxCredits}</span>

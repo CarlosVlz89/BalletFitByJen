@@ -441,7 +441,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
 
   return (
     <div className="pb-20">
-      <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-0 z-50">
+      <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-[64px] z-[60]">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-2">
           <div className="flex items-center gap-4">
              <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
@@ -451,7 +451,8 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
         </div>
       </nav>
 
-      <div className="max-w-6xl mx-auto px-6 py-10">
+      {/* AJUSTE: pt-24 para que el contenido no quede pegado a las navbars */}
+      <div className="max-w-6xl mx-auto px-6 pt-24 pb-10">
         <div className="mb-10 text-center md:text-left">
            <h2 className="text-4xl md:text-5xl font-serif italic text-[#1A3A3E] font-bold mb-2">¡Hola, {user.firstName}!</h2>
            <p className="text-[#369EAD] text-sm md:text-base font-sans uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
@@ -616,45 +617,9 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
     }
   }, [showAddForm, students]);
 
-  useEffect(() => {
-    const checkWeeklyReset = async () => {
-      const metadataRef = doc(db, 'artifacts', appId, 'public', 'metadata', 'settings');
-      const currentWeek = getISOWeekNumber(new Date());
-      
-      try {
-        const docSnap = await getDoc(metadataRef);
-        let lastResetWeek = 0;
-        
-        if (docSnap.exists()) {
-          lastResetWeek = docSnap.data().lastResetWeek || 0;
-        }
-
-        if (currentWeek !== lastResetWeek && students.length > 0) {
-          const batch = writeBatch(db);
-          activeStudents.forEach(s => {
-            const studentRef = doc(db, 'alumnas', s.id);
-            batch.update(studentRef, {
-              credits: s.maxCredits,
-              history: []
-            });
-          });
-          await setDoc(metadataRef, { lastResetWeek: currentWeek }, { merge: true });
-          await batch.commit();
-          showNotification('¡Créditos reiniciados!', 'success');
-        }
-      } catch (err) { console.error(err); }
-    };
-    if (students.length > 0) checkWeeklyReset();
-  }, [students.length]);
-
   const nextSession = getNextClassFromSchedule();
   const roster = students.filter(s => s.history?.includes(nextSession.id) && s.status !== 'inactive');
   const totalIncome = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
-
-  const toggleSessionStatus = async (sessionId, currentStatus) => {
-    await setDoc(doc(db, 'sesiones', sessionId), { isClosed: !currentStatus }, { merge: true });
-    showNotification('Estado actualizado');
-  };
 
   const handleMarkAttendance = async (studentId, sessionId) => {
     if (!window.confirm("¿Confirmar asistencia?")) return;
@@ -748,7 +713,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
 
   return (
     <div className="pb-20">
-      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-0 z-[100]">
+      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-[100]">
         <div className="flex items-center gap-3">
           <span className="text-xl font-serif font-black tracking-tight">BF ADMIN</span>
           <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
@@ -756,7 +721,8 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
         <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest transition-opacity">Cerrar Sesión</button>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+      {/* AJUSTE: pt-24 para que la información baje respecto a los navbars */}
+      <div className="max-w-7xl mx-auto px-6 pt-24 pb-12 space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-sans">
           <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white flex items-center gap-6 group">
             <div className="p-4 bg-[#C5A059] rounded-sm text-[#1A3A3E] transition-transform group-hover:rotate-6"><DollarSign size={28} /></div>
@@ -985,7 +951,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
 
   return (
     <div className="pb-20">
-      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-0 z-50">
+      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-50 font-sans">
         <div className="flex items-center gap-4">
           <span className="text-xl font-serif font-black tracking-tight uppercase">Staff</span>
           <button onClick={() => setShowPassModal(true)} className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-[8px] font-sans font-black uppercase tracking-widest flex items-center gap-1 transition-colors"><Key size={10}/><span>Mi Clave</span></button>
@@ -996,7 +962,8 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+      {/* AJUSTE: pt-24 para bajar la información */}
+      <div className="max-w-7xl mx-auto px-6 pt-24 py-12 space-y-12">
         <div className="mb-10 text-center md:text-left">
            <h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">¡Hola, {user.firstName}!</h2>
            <p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Lista para tu próxima clase</p>
@@ -1031,7 +998,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
                   </span>
                 )}
               </div>
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar font-sans">
                 {roster.length > 0 ? roster.map((alumna) => (
                   <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
                     <div className="flex-1">
@@ -1058,7 +1025,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
                 <h3 className="text-xl font-serif italic font-bold mb-6 flex items-center gap-2 text-[#1A3A3E]">
                   <Calendar size={20} className="text-[#369EAD]" /> Horario de Clases
                 </h3>
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-4 font-sans">
                    {teacherClasses.map(s => (
                       <div key={s.id} className="p-8 bg-gray-50 rounded-sm border-l-8 border-[#369EAD] flex flex-col justify-center">
                          <span className="text-xs font-sans font-black uppercase text-gray-400 tracking-widest">{s.day}</span>

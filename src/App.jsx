@@ -390,7 +390,7 @@ const LoginView = ({ onLogin, error }) => {
           <form onSubmit={(e) => { e.preventDefault(); onLogin(id, password); }} className="space-y-6">
             <div className="space-y-1">
               <label className="text-[9px] font-sans font-black uppercase text-gray-400 tracking-widest ml-1">ID o Usuario</label>
-              <input type="text" required placeholder="JENNY / BF-001" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-sans uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
+              <input type="text" required placeholder="Ingresa tu ID" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-sans uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
             </div>
             <div className="space-y-1 relative">
               <label className="text-[9px] font-sans font-black uppercase text-gray-400 tracking-widest ml-1">Contraseña</label>

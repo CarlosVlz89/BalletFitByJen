@@ -57,7 +57,9 @@ import {
   ShieldCheck,
   ShieldAlert,
   GraduationCap,
-  Settings
+  Settings,
+  CalendarX,
+  Tag
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -135,18 +137,6 @@ const getHoursUntilClass = (dayIdx, timeStr) => {
   classTime.setHours(hours, minutes, 0, 0);
   const diffMs = classTime - now;
   return diffMs / (1000 * 60 * 60);
-};
-
-const getISOWeekNumber = (date) => {
-  const tdt = new Date(date.valueOf());
-  const day = (date.getDay() + 6) % 7;
-  tdt.setDate(tdt.getDate() - day + 3);
-  const firstThursday = tdt.valueOf();
-  tdt.setMonth(0, 1);
-  if (tdt.getDay() !== 4) {
-    tdt.setMonth(0, 1 + ((4 - tdt.getDay()) + 7) % 7);
-  }
-  return 1 + Math.ceil((firstThursday - tdt) / 604800000);
 };
 
 const isClassInPast = (dayIdx, timeStr) => {
@@ -290,7 +280,6 @@ export default function App() {
         return;
       }
       setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
-      setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
       setView('student');
       showNotification(`¡Hola, ${found.name}!`);
     } else {
@@ -441,7 +430,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
 
   return (
     <div className="pb-20">
-      <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-[64px] z-[60]">
+      <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-[64px] z-[50] w-full">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-2">
           <div className="flex items-center gap-4">
              <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
@@ -451,8 +440,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
         </div>
       </nav>
 
-      {/* AJUSTE: pt-24 para que el contenido no quede pegado a las navbars */}
-      <div className="max-w-6xl mx-auto px-6 pt-24 pb-10">
+      <div className="max-w-6xl mx-auto px-6 pt-32 pb-10">
         <div className="mb-10 text-center md:text-left">
            <h2 className="text-4xl md:text-5xl font-serif italic text-[#1A3A3E] font-bold mb-2">¡Hola, {user.firstName}!</h2>
            <p className="text-[#369EAD] text-sm md:text-base font-sans uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
@@ -547,42 +535,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
   );
 };
 
-// --- MODAL DE CAMBIO DE CONTRASEÑA AUTÓNOMO ---
-const SelfChangePassModal = ({ onClose, onSave }) => {
-    const [newPass, setNewPass] = useState("");
-    const [loading, setLoading] = useState(false);
-    return (
-        <div className="fixed inset-0 bg-[#1A3A3E]/90 backdrop-blur-md z-[600] flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD] animate-in zoom-in font-sans text-center">
-                <h3 className="text-xl font-serif italic mb-2">Cambiar mi contraseña</h3>
-                <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-6 italic">Define una clave que puedas recordar</p>
-                <div className="space-y-4">
-                    <input 
-                        type="text" 
-                        className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-center font-bold font-sans text-sm" 
-                        placeholder="Escribe tu nueva clave" 
-                        value={newPass} 
-                        onChange={e => setNewPass(e.target.value)} 
-                    />
-                    <Button 
-                        disabled={loading || !newPass.trim()} 
-                        onClick={async () => {
-                            setLoading(true);
-                            const success = await onSave(newPass);
-                            if (success) onClose();
-                            setLoading(false);
-                        }} 
-                        className="w-full !py-4"
-                    >
-                        {loading ? <Loader2 className="animate-spin"/> : "Guardar nueva clave"}
-                    </Button>
-                    <button onClick={onClose} className="text-[10px] uppercase font-bold text-gray-300 tracking-widest hover:text-red-400 transition-colors">Cancelar</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
+// --- DASHBOARD ADMINISTRADOR ---
 const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNotification }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showStaffForm, setShowStaffForm] = useState(false);
@@ -642,6 +595,13 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
       await updateDoc(doc(db, collectionName, id), { status: newStatus });
       showNotification('Estatus actualizado');
     } catch (err) { console.error(err); }
+  };
+
+  const handleToggleClass = async (sessionId, currentState) => {
+    try {
+      await setDoc(doc(db, 'sesiones', sessionId), { isClosed: !currentState }, { merge: true });
+      showNotification(currentState ? 'Clase habilitada' : 'Clase bloqueada por feriado');
+    } catch (err) { showNotification('Error al actualizar clase', 'error'); }
   };
 
   const handleUpdatePassword = async (collectionName, id) => {
@@ -713,17 +673,17 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
 
   return (
     <div className="pb-20">
-      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-[100]">
+      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-[50] w-full border-t border-white/5">
         <div className="flex items-center gap-3">
-          <span className="text-xl font-serif font-black tracking-tight">BF ADMIN</span>
+          <span className="text-xl font-serif font-black tracking-tight uppercase italic">BF ADMIN</span>
           <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
         </div>
         <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest transition-opacity">Cerrar Sesión</button>
       </nav>
 
-      {/* AJUSTE: pt-24 para que la información baje respecto a los navbars */}
-      <div className="max-w-7xl mx-auto px-6 pt-24 pb-12 space-y-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-sans">
+      <div className="max-w-7xl mx-auto px-6 pt-32 pb-12 space-y-12">
+        {/* STATS CARDS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 font-sans text-center md:text-left">
           <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white flex items-center gap-6 group">
             <div className="p-4 bg-[#C5A059] rounded-sm text-[#1A3A3E] transition-transform group-hover:rotate-6"><DollarSign size={28} /></div>
             <div>
@@ -742,49 +702,101 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
             <div className="p-4 bg-[#369EAD] rounded-sm text-white"><Users size={28} /></div>
             <div>
               <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Activas / Staff</p>
-              <p className="text-3xl font-bold text-[#369EAD]">{activeStudents.length} Alumnas / {teachers.length} Staff</p>
+              <p className="text-3xl font-bold text-[#369EAD] font-sans">{activeStudents.length} Alumnas / {teachers.length} Staff</p>
             </div>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-           <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
-                  <ClipboardList size={20} /> Roster: Próxima Clase
-                </h3>
-                <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
-                  {nextSession.day} {nextSession.time}
-                </span>
-              </div>
-              
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {roster.length > 0 ? roster.map((alumna) => (
-                  <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
-                        <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
-                      </div>
-                      {alumna.notes && (
-                        <div className="mt-2 flex items-start gap-2 text-red-300">
-                          <Stethoscope size={12} className="mt-1 flex-shrink-0" />
-                          <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => handleMarkAttendance(alumna.id, nextSession.id)} className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg">
-                      <Check size={18} />
-                    </button>
-                  </div>
-                )) : (
-                  <div className="text-center py-10 opacity-30 italic text-sm">Sin inscritas todavía</div>
-                )}
+        {/* AJUSTE: BLOQUE DE PRECIOS Y MENSAJE MOVIDO ARRIBA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <Card className="bg-[#EBF5F6] border-[#369EAD]">
+              <h3 className="text-xl font-serif font-bold italic text-[#1A3A3E] mb-6 flex items-center gap-2">
+                 <Tag size={20} className="text-[#369EAD]" /> Referencia de Precios
+              </h3>
+              <div className="space-y-3 font-sans">
+                 {PRICES.map((p, idx) => (
+                   <div key={idx} className="flex justify-between items-center border-b border-[#369EAD]/10 pb-2 transition-all hover:translate-x-1">
+                     <span className="text-xs font-medium text-gray-600 uppercase tracking-tight">{p.plan}</span>
+                     <span className="text-sm font-bold text-[#369EAD]">${p.price}</span>
+                   </div>
+                 ))}
               </div>
            </Card>
 
-           <div className="lg:col-span-2">
-              <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans mb-8">
+           <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center relative overflow-hidden group">
+              <PartyPopper className="text-[#C5A059] mx-auto mb-4 animate-bounce" size={40} />
+              <h3 className="text-2xl font-serif italic mb-2">¡Sigue creciendo!</h3>
+              <p className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 leading-relaxed px-4">
+                Cada alumna nueva es un paso más hacia tu sueño
+              </p>
+              {/* Elementos decorativos */}
+              <div className="absolute -bottom-4 -right-4 opacity-5 transform rotate-12">
+                <TrendingUp size={120} />
+              </div>
+           </Card>
+        </div>
+
+        {/* MAIN GRID CON TABLAS */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           <div className="lg:col-span-1 space-y-8">
+              {/* ROSTER */}
+              <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
+                    <ClipboardList size={20} /> Roster: Próxima Clase
+                  </h3>
+                  <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
+                    {nextSession.day} {nextSession.time}
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {roster.length > 0 ? roster.map((alumna) => (
+                    <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
+                          <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
+                        </div>
+                      </div>
+                      <button onClick={() => handleMarkAttendance(alumna.id, nextSession.id)} className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg">
+                        <Check size={18} />
+                      </button>
+                    </div>
+                  )) : (
+                    <div className="text-center py-10 opacity-30 italic text-sm">Sin inscritas todavía</div>
+                  )}
+                </div>
+              </Card>
+
+              {/* CONTROL DE HORARIOS (BLOQUEO) */}
+              <Card>
+                <h3 className="text-xl font-serif italic text-[#1A3A3E] mb-6 flex items-center gap-2">
+                  <CalendarX size={20} className="text-[#369EAD]" /> Control de Horarios
+                </h3>
+                <p className="text-[10px] uppercase font-black text-gray-400 mb-4 tracking-widest">Activa o bloquea por feriados</p>
+                <div className="space-y-4 font-sans">
+                  {WEEKLY_SCHEDULE.map(s => {
+                    const isClosed = sessionsData[s.id]?.isClosed;
+                    return (
+                      <div key={s.id} className="flex justify-between items-center p-3 border border-gray-50 bg-gray-50/30 rounded-sm transition-all hover:bg-gray-100/50">
+                        <div>
+                          <p className="text-xs font-bold">{s.day} {s.time}</p>
+                          <p className="text-[9px] uppercase text-[#369EAD] font-bold">{s.teacher}</p>
+                        </div>
+                        <button onClick={() => handleToggleClass(s.id, !!isClosed)} className={`flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase transition-all ${isClosed ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                          {isClosed ? <ToggleLeft size={18} /> : <ToggleRight size={18} />}
+                          {isClosed ? 'Bloqueado' : 'Abierto'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+           </div>
+
+           <div className="lg:col-span-2 space-y-8">
+              {/* STAFF MANAGEMENT */}
+              <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
                 <div className="p-6 border-b border-gray-50 bg-[#1A3A3E]/5 flex justify-between items-center">
                   <h3 className="font-serif font-bold italic text-[#1A3A3E] flex items-center gap-2"><ShieldCheck size={20} className="text-[#369EAD]"/> Gestión de Staff</h3>
                   <Button onClick={() => setShowStaffForm(true)} className="!px-4 !py-2 !text-[9px]">Nuevo Maestro</Button>
@@ -828,6 +840,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
                 </div>
               </div>
 
+              {/* STUDENT MANAGEMENT */}
               <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
                 <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
                   <h3 className="font-serif font-bold italic text-[#1A3A3E]">Control de Alumnas</h3>
@@ -875,9 +888,10 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
         </div>
       </div>
 
+      {/* MODALS */}
       {(showAddForm || showStaffForm) && (
         <div className="fixed inset-0 bg-[#1A3A3E]/90 backdrop-blur-md z-[500] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in font-sans">
+          <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in font-sans text-center">
             <button onClick={() => { setShowAddForm(false); setShowStaffForm(false); }} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors"><X size={28} /></button>
             <h3 className="text-2xl font-serif italic mb-6 border-b pb-2">{showAddForm ? 'Nueva Alumna' : 'Nuevo Maestro'}</h3>
             <form onSubmit={showAddForm ? handleRegister : handleRegisterStaff} className="space-y-6">
@@ -888,7 +902,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
               <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 outline-none uppercase text-xs font-serif italic border-b border-gray-100 focus:border-[#369EAD]" value={showAddForm ? newStudent.name : newStaff.name} onChange={e => showAddForm ? setNewStudent({...newStudent, name: e.target.value}) : setNewStaff({...newStaff, name: e.target.value})} />
               {showAddForm ? (
                 <select className="w-full p-4 bg-gray-50 outline-none text-xs border-b border-gray-100 focus:border-[#369EAD]" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
-                  {PRICES.slice(0, 4).map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
+                  {PRICES.map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
                 </select>
               ) : (
                 <select className="w-full p-4 bg-gray-50 outline-none text-xs border-b border-gray-100 focus:border-[#369EAD]" value={newStaff.role} onChange={e => setNewStaff({...newStaff, role: e.target.value})}>
@@ -927,7 +941,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   );
 };
 
-// --- VISTA MAESTRA (LUCY / STAFF) ---
+// --- VISTA MAESTRA ---
 const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNotification, onUpdatePass }) => {
   const [showPassModal, setShowPassModal] = useState(false);
   const currentMonth = getCurrentMonthName();
@@ -951,7 +965,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
 
   return (
     <div className="pb-20">
-      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-50 font-sans">
+      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg sticky top-[64px] z-[50] font-sans w-full border-t border-white/5">
         <div className="flex items-center gap-4">
           <span className="text-xl font-serif font-black tracking-tight uppercase">Staff</span>
           <button onClick={() => setShowPassModal(true)} className="bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-[8px] font-sans font-black uppercase tracking-widest flex items-center gap-1 transition-colors"><Key size={10}/><span>Mi Clave</span></button>
@@ -962,11 +976,10 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
         </div>
       </nav>
 
-      {/* AJUSTE: pt-24 para bajar la información */}
-      <div className="max-w-7xl mx-auto px-6 pt-24 py-12 space-y-12">
+      <div className="max-w-7xl mx-auto px-6 pt-32 py-12 space-y-12">
         <div className="mb-10 text-center md:text-left">
            <h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">¡Hola, {user.firstName}!</h2>
-           <p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Lista para tu próxima clase</p>
+           <p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Maestra de Ballet Fit</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
@@ -1003,12 +1016,6 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
                   <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
                     <div className="flex-1">
                       <div className="font-serif italic font-bold text-sm">{alumna.name}</div>
-                      {alumna.notes && (
-                        <div className="mt-2 flex items-start gap-2 text-red-300">
-                          <Stethoscope size={12} className="mt-1 flex-shrink-0" />
-                          <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
-                        </div>
-                      )}
                     </div>
                     <button onClick={() => handleMarkAttendance(alumna.id, nextSession.id)} className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg">
                       <Check size={18} />
@@ -1025,7 +1032,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNoti
                 <h3 className="text-xl font-serif italic font-bold mb-6 flex items-center gap-2 text-[#1A3A3E]">
                   <Calendar size={20} className="text-[#369EAD]" /> Horario de Clases
                 </h3>
-                <div className="grid grid-cols-1 gap-4 font-sans">
+                <div className="grid grid-cols-1 gap-4 font-sans text-center md:text-left">
                    {teacherClasses.map(s => (
                       <div key={s.id} className="p-8 bg-gray-50 rounded-sm border-l-8 border-[#369EAD] flex flex-col justify-center">
                          <span className="text-xs font-sans font-black uppercase text-gray-400 tracking-widest">{s.day}</span>

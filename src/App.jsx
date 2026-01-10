@@ -49,7 +49,8 @@ import {
   Check,
   UserX,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  BookOpen
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -65,7 +66,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const appId = "balletfitbyjen-6b36a"; // Consistente con las reglas de storage
+const appId = "balletfitbyjen-6b36a"; 
 
 const BRAND = {
   teal: '#369EAD',
@@ -135,7 +136,6 @@ const getHoursUntilClass = (dayIdx, timeStr) => {
   return diffMs / (1000 * 60 * 60);
 };
 
-// Obtener número de semana ISO para el reinicio automático
 const getISOWeekNumber = (date) => {
   const tdt = new Date(date.valueOf());
   const day = (date.getDay() + 6) % 7;
@@ -161,8 +161,12 @@ const isClassInPast = (dayIdx, timeStr) => {
   return false;
 };
 
-const getNextClassFromSchedule = () => {
-  const diffs = WEEKLY_SCHEDULE.map(s => ({
+const getNextClassFromSchedule = (teacherName = null) => {
+  let schedule = WEEKLY_SCHEDULE;
+  if (teacherName) {
+    schedule = WEEKLY_SCHEDULE.filter(s => s.teacher === teacherName);
+  }
+  const diffs = schedule.map(s => ({
     ...s,
     diff: getHoursUntilClass(s.dayIdx, s.time)
   }));
@@ -222,9 +226,17 @@ export default function App() {
     const cleanName = nameInput.trim().toUpperCase();
     setError(null);
 
+    // ADMIN LOGIN
     if (cleanId === 'ADMIN-JEN' && cleanName === 'JENNY') {
       setUser({ firstName: 'JENNY', role: 'admin' });
       setView('admin');
+      return;
+    }
+
+    // TEACHER LOGIN (LUCY)
+    if (cleanId === 'TEACHER-LUCY' && cleanName === 'LUCY') {
+      setUser({ firstName: 'LUCY', role: 'teacher' });
+      setView('teacher');
       return;
     }
 
@@ -315,6 +327,7 @@ export default function App() {
       {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
       {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
       {view === 'admin' && <AdminDashboard students={students} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
+      {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
     </div>
   );
 }
@@ -374,7 +387,6 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-2xl font-serif text-[#1A3A3E] italic">Resumen de {currentMonth}</h3>
-                <p className="text-xs text-gray-400 font-sans uppercase tracking-widest font-bold">Tus métricas de disciplina</p>
               </div>
               <div className="p-3 rounded-full text-[#369EAD]">
                 <Activity size={24} />
@@ -485,7 +497,6 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
     }
   }, [showAddForm, students]);
 
-  // --- NUEVA LÓGICA DE REINICIO AUTOMÁTICO SEMANAL ---
   useEffect(() => {
     const checkWeeklyReset = async () => {
       const metadataRef = doc(db, 'artifacts', appId, 'public', 'metadata', 'settings');
@@ -499,11 +510,8 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
           lastResetWeek = docSnap.data().lastResetWeek || 0;
         }
 
-        // Si la semana actual es distinta a la del último reinicio, disparamos el proceso
         if (currentWeek !== lastResetWeek && students.length > 0) {
-          console.log("Triggering weekly reset for all active students...");
           const batch = writeBatch(db);
-          
           activeStudents.forEach(s => {
             const studentRef = doc(db, 'alumnas', s.id);
             batch.update(studentRef, {
@@ -511,8 +519,6 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
               history: []
             });
           });
-
-          // Actualizamos la semana de control
           await setDoc(metadataRef, { lastResetWeek: currentWeek }, { merge: true });
           await batch.commit();
           showNotification('¡Créditos reiniciados para la nueva semana!', 'success');
@@ -542,7 +548,6 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
     try {
       const studentRef = doc(db, 'alumnas', studentId);
       const sessionRef = doc(db, 'sesiones', sessionId);
-      
       await updateDoc(studentRef, { 
         totalAttendance: increment(1),
         history: arrayRemove(sessionId) 
@@ -624,7 +629,6 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
-        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
               <div className="flex justify-between items-center mb-6">
@@ -834,6 +838,125 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// --- PORTAL DE MAESTRA (LUCY) ---
+const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNotification }) => {
+  const currentMonth = getCurrentMonthName();
+  
+  // Lucy solo ve sus propias clases
+  const teacherClasses = WEEKLY_SCHEDULE.filter(s => s.teacher === user.firstName);
+  const nextSession = getNextClassFromSchedule(user.firstName);
+  const roster = students.filter(s => s.history?.includes(nextSession?.id) && s.status !== 'inactive');
+
+  const handleMarkAttendance = async (studentId, sessionId) => {
+    if (!window.confirm("¿Confirmar asistencia de la alumna?")) return;
+    try {
+      const studentRef = doc(db, 'alumnas', studentId);
+      const sessionRef = doc(db, 'sesiones', sessionId);
+      await updateDoc(studentRef, { 
+        totalAttendance: increment(1),
+        history: arrayRemove(sessionId) 
+      });
+      await updateDoc(sessionRef, { booked: increment(-1) });
+      showNotification('Asistencia marcada');
+    } catch (err) { console.error(err); }
+  };
+
+  return (
+    <div className="pb-20">
+      <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
+        <div className="flex items-center gap-3">
+          <span className="text-xl font-serif font-black tracking-tight uppercase">Portal Maestra</span>
+          <span className="bg-[#369EAD] text-white text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{user.firstName}</span>
+        </div>
+        <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+        <div className="mb-10 text-center md:text-left">
+           <h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">¡Hola, {user.firstName}!</h2>
+           <p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Lista para tu próxima clase</p>
+        </div>
+
+        {/* METRICAS AL TOP (NUEVO ORDEN) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+          <Card className="bg-white border-[#C5A059] flex items-center gap-6">
+              <div className="p-4 bg-[#C5A059] text-[#1A3A3E] rounded-sm"><BookOpen size={28} /></div>
+              <div>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Disciplina</p>
+              <p className="text-2xl font-serif italic font-bold">Ballet Fit Master</p>
+            </div>
+          </Card>
+          <Card className="bg-[#EBF5F6] border-[#369EAD] flex items-center gap-6">
+            <div className="p-4 bg-[#369EAD] text-white rounded-sm"><Trophy size={28} /></div>
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Asistencia</p>
+              <p className="text-3xl font-bold text-[#369EAD] font-sans">Total alumnas marcadas</p>
+            </div>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           {/* ROSTER EXCLUSIVO PARA LUCY */}
+           <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
+                  <ClipboardList size={20} /> Asistencia: Próxima Clase
+                </h3>
+                {nextSession && (
+                  <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
+                    {nextSession.day} {nextSession.time}
+                  </span>
+                )}
+              </div>
+              
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {roster.length > 0 ? roster.map((alumna) => (
+                  <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
+                    <div className="flex-1">
+                      <div className="font-serif italic font-bold text-sm">{alumna.name}</div>
+                      {alumna.notes && (
+                        <div className="mt-2 flex items-start gap-2 text-red-300">
+                          <Stethoscope size={12} className="mt-1 flex-shrink-0" />
+                          <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
+                      className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"
+                    >
+                      <Check size={18} />
+                    </button>
+                  </div>
+                )) : (
+                  <div className="text-center py-10 opacity-30 italic text-sm">No hay alumnas inscritas aún</div>
+                )}
+              </div>
+           </Card>
+
+           <div className="lg:col-span-2 space-y-8">
+              {/* HORARIO ENFOCADO EN VIERNES 7PM */}
+              <Card className="bg-white">
+                <h3 className="text-xl font-serif italic font-bold mb-6 flex items-center gap-2 text-[#1A3A3E]">
+                  <Calendar size={20} className="text-[#369EAD]" /> Clase del viernes 7:00 PM
+                </h3>
+                <div className="grid grid-cols-1 gap-4">
+                   {teacherClasses.map(s => (
+                      <div key={s.id} className="p-10 bg-gray-50 rounded-sm border-l-8 border-[#369EAD] flex flex-col justify-center">
+                         <span className="text-xs font-sans font-black uppercase text-gray-400 tracking-widest">{s.day}</span>
+                         <p className="text-5xl font-sans font-bold text-[#1A3A3E] my-2">{s.time}</p>
+                         <p className="text-sm text-[#369EAD] font-bold uppercase tracking-[0.2em]">{s.type}</p>
+                      </div>
+                   ))}
+                </div>
+              </Card>
+           </div>
+        </div>
+      </div>
     </div>
   );
 };

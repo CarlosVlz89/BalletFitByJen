@@ -73,7 +73,7 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const appId = "balletfitbyjen-6b36a"; 
 
-// --- SECRETOS DE ACCESO (ADMIN SIGUE SIENDO HARDCODED PARA SEGURIDAD) ---
+// --- SECRETOS DE ACCESO ---
 const ADMIN_PASS = "JENNY2024";
 
 const WEEKLY_SCHEDULE = [
@@ -195,29 +195,45 @@ export default function App() {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // RUTAS CONSTANTES (Regla 1)
+  const studentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'alumnas');
+  const teachersCol = collection(db, 'artifacts', appId, 'public', 'data', 'maestros');
+  const sessionsCol = collection(db, 'artifacts', appId, 'public', 'data', 'sesiones');
+
   useEffect(() => {
     setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
+    
     const startApp = async () => {
-      try { await signInAnonymously(auth); } catch (err) { console.error("Error Auth:", err); }
+      // Regla 3: Autenticar primero
+      try { 
+        await signInAnonymously(auth); 
+      } catch (err) { 
+        console.error("Error Auth:", err); 
+      }
 
-      const unsubStudents = onSnapshot(collection(db, 'alumnas'), (snapshot) => {
-        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setStudents(list);
-        setLoading(false);
-      }, (err) => showNotification("Error al cargar alumnas", "error"));
+      onAuthStateChanged(auth, (firebaseUser) => {
+        if (!firebaseUser) return;
 
-      const unsubTeachers = onSnapshot(collection(db, 'maestros'), (snapshot) => {
-        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setTeachers(list);
+        // Escuchar colecciones usando las nuevas rutas seguras
+        const unsubStudents = onSnapshot(studentsCol, (snapshot) => {
+          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          setStudents(list);
+          setLoading(false);
+        }, (err) => showNotification("Error al cargar alumnas", "error"));
+
+        const unsubTeachers = onSnapshot(teachersCol, (snapshot) => {
+          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          setTeachers(list);
+        });
+
+        const unsubSessions = onSnapshot(sessionsCol, (snapshot) => {
+          const data = {};
+          snapshot.docs.forEach(d => data[d.id] = d.data());
+          setSessionsData(data);
+        });
+
+        return () => { unsubStudents(); unsubTeachers(); unsubSessions(); };
       });
-
-      const unsubSessions = onSnapshot(collection(db, 'sesiones'), (snapshot) => {
-        const data = {};
-        snapshot.docs.forEach(d => data[d.id] = d.data());
-        setSessionsData(data);
-      });
-
-      return () => { unsubStudents(); unsubTeachers(); unsubSessions(); };
     };
     startApp();
   }, []);
@@ -234,7 +250,6 @@ export default function App() {
     const cleanPass = passwordInput.trim();
     setError(null);
 
-    // ADMIN LOGIN CHECK (Hardcoded para seguridad maestra)
     if (cleanId === 'ADMIN-JEN' || cleanId === 'JENNY') {
       if (cleanPass === ADMIN_PASS) {
         setUser({ firstName: 'JENNY', role: 'admin' });
@@ -247,7 +262,6 @@ export default function App() {
       }
     }
 
-    // TEACHER LOGIN CHECK (Desde DB para permitir cambio de clave)
     const teacherFound = teachers.find(t => t.id.toUpperCase() === cleanId);
     if (teacherFound) {
       if (teacherFound.password === cleanPass) {
@@ -265,20 +279,16 @@ export default function App() {
       }
     }
 
-    // STUDENT LOGIN CHECK
     const found = students.find(s => s.id.toUpperCase() === cleanId);
-
     if (found) {
       if (found.password && found.password !== cleanPass) {
         setError('Contraseña incorrecta.');
         return;
       }
-      
       if (found.status === 'inactive') {
         setError('Cuenta inactiva. Contacta a Jenny.');
         return;
       }
-
       setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
       setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
       setView('student');
@@ -288,6 +298,7 @@ export default function App() {
   };
 
   const handleBooking = async (sessionId) => {
+    if (!auth.currentUser) return;
     const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
     const sessionState = sessionsData[sessionId];
     
@@ -300,8 +311,8 @@ export default function App() {
     if (user.credits <= 0) { showNotification('Sin créditos.', 'error'); return; }
 
     try {
-      const studentRef = doc(db, 'alumnas', user.id);
-      const sessionRef = doc(db, 'sesiones', sessionId);
+      const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', user.id);
+      const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId);
       await updateDoc(studentRef, { 
         credits: increment(-1), 
         history: arrayUnion(sessionId)
@@ -312,6 +323,7 @@ export default function App() {
   };
 
   const handleCancel = async (sessionId) => {
+    if (!auth.currentUser) return;
     const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
     const hoursRemaining = getHoursUntilClass(sessionConfig.dayIdx, sessionConfig.time);
     const isLateCancellation = hoursRemaining < 6;
@@ -319,8 +331,8 @@ export default function App() {
     if (isLateCancellation && !window.confirm("Menos de 6h: El lugar se libera pero NO se devuelve crédito. ¿Continuar?")) return;
 
     try {
-      const studentRef = doc(db, 'alumnas', user.id);
-      const sessionRef = doc(db, 'sesiones', sessionId);
+      const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', user.id);
+      const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId);
       if (!isLateCancellation) {
         await updateDoc(studentRef, { 
           credits: increment(1), 
@@ -352,8 +364,8 @@ export default function App() {
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
       {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
-      {view === 'admin' && <AdminDashboard students={students} teachers={teachers} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
-      {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} onLogout={handleLogout} showNotification={showNotification} />}
+      {view === 'admin' && <AdminDashboard students={students} teachers={teachers} sessionsData={sessionsData} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} />}
+      {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} />}
     </div>
   );
 }
@@ -505,7 +517,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
   );
 };
 
-const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNotification }) => {
+const AdminDashboard = ({ students, teachers, sessionsData, db, appId, onLogout, showNotification }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [showPassModal, setShowPassModal] = useState(null); 
@@ -541,6 +553,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
 
   useEffect(() => {
     const checkWeeklyReset = async () => {
+      if (!auth.currentUser) return;
       const metadataRef = doc(db, 'artifacts', appId, 'public', 'metadata', 'settings');
       const currentWeek = getISOWeekNumber(new Date());
       
@@ -555,7 +568,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
         if (currentWeek !== lastResetWeek && students.length > 0) {
           const batch = writeBatch(db);
           activeStudents.forEach(s => {
-            const studentRef = doc(db, 'alumnas', s.id);
+            const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', s.id);
             batch.update(studentRef, {
               credits: s.maxCredits,
               history: []
@@ -581,15 +594,17 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   const totalIncome = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
 
   const toggleSessionStatus = async (sessionId, currentStatus) => {
-    await setDoc(doc(db, 'sesiones', sessionId), { isClosed: !currentStatus }, { merge: true });
+    if (!auth.currentUser) return;
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId), { isClosed: !currentStatus }, { merge: true });
     showNotification('Estado actualizado');
   };
 
   const handleMarkAttendance = async (studentId, sessionId) => {
+    if (!auth.currentUser) return;
     if (!window.confirm("¿Confirmar asistencia? Esto sumará la clase al historial de la alumna.")) return;
     try {
-      const studentRef = doc(db, 'alumnas', studentId);
-      const sessionRef = doc(db, 'sesiones', sessionId);
+      const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', studentId);
+      const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId);
       await updateDoc(studentRef, { 
         totalAttendance: increment(1),
         history: arrayRemove(sessionId) 
@@ -600,18 +615,20 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   };
 
   const handleToggleStatus = async (collectionName, id, currentStatus) => {
+    if (!auth.currentUser) return;
     const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
     if (!window.confirm(`¿Cambiar estatus de este registro?`)) return;
     try {
-      await updateDoc(doc(db, collectionName, id), { status: newStatus });
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, id), { status: newStatus });
       showNotification('Estatus actualizado');
     } catch (err) { console.error(err); }
   };
 
   const handleUpdatePassword = async (collectionName, id) => {
+    if (!auth.currentUser) return;
     if (!newPassValue.trim()) return;
     try {
-      await updateDoc(doc(db, collectionName, id), { password: newPassValue.trim() });
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, id), { password: newPassValue.trim() });
       showNotification('Contraseña actualizada');
       setShowPassModal(null);
       setShowStaffPassModal(null);
@@ -620,6 +637,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   };
 
   const handleRegister = async (e) => {
+    if (!auth.currentUser) return;
     e.preventDefault();
     const cleanId = newStudent.id.trim().toUpperCase();
     if (!cleanId || !newStudent.name || !newStudent.password) {
@@ -628,7 +646,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
     }
     setSaving(true);
     try {
-      const docRef = doc(db, 'alumnas', cleanId);
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', cleanId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         showNotification(`ID ya usado por ${docSnap.data().name}`, 'error');
@@ -657,6 +675,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   };
 
   const handleRegisterStaff = async (e) => {
+    if (!auth.currentUser) return;
     e.preventDefault();
     const cleanId = newStaff.id.trim().toUpperCase();
     if (!cleanId || !newStaff.name || !newStaff.password) {
@@ -665,7 +684,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
     }
     setSaving(true);
     try {
-      await setDoc(doc(db, 'maestros', cleanId), { 
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'maestros', cleanId), { 
         ...newStaff, 
         id: cleanId, 
         name: newStaff.name.trim().toUpperCase(), 
@@ -679,9 +698,9 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   };
 
   const handlePayment = async () => {
-    if (!showPaymentModal) return;
+    if (!auth.currentUser || !showPaymentModal) return;
     try {
-      await updateDoc(doc(db, 'alumnas', showPaymentModal), {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', showPaymentModal), {
         monthlyPayment: parseFloat(paymentAmount)
       });
       showNotification('Pago registrado');
@@ -691,8 +710,29 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   };
 
   const resetCreditsManual = async (id, max) => {
+    if (!auth.currentUser) return;
     if (window.confirm("¿Reiniciar semana manual? Se limpiarán los créditos.")) {
-      await updateDoc(doc(db, 'alumnas', id), { credits: max, history: [] });
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', id), { credits: max, history: [] });
+    }
+  };
+
+  const deleteStudent = async (id, name) => {
+    if (!auth.currentUser) return;
+    if (window.confirm(`¿Borrar permanentemente a ${name}? Se perderá todo su historial.`)) {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', id));
+        showNotification('Alumna eliminada');
+      } catch (err) { showNotification('Error al borrar', 'error'); }
+    }
+  };
+
+  const deleteTeacher = async (id, name) => {
+    if (!auth.currentUser) return;
+    if (window.confirm(`¿Borrar permanentemente al staff ${name}?`)) {
+      try {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'maestros', id));
+        showNotification('Staff eliminado');
+      } catch (err) { showNotification('Error al borrar', 'error'); }
     }
   };
 
@@ -760,7 +800,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
                 </div>
               </Card>
 
-              {/* PANEL AGREGADO: MOTIVACIONAL */}
               <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center relative overflow-hidden group">
                 <PartyPopper className="text-[#C5A059] mx-auto mb-4 animate-bounce" size={40} />
                 <h3 className="text-2xl font-serif italic mb-2">¡Sigue creciendo!</h3>
@@ -818,7 +857,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
           </div>
 
           <div className="lg:col-span-3 space-y-8">
-            {/* PANEL AGREGADO: MAESTROS Y STAFF */}
             <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
               <div className="p-6 border-b border-gray-50 bg-[#1A3A3E]/5 flex justify-between items-center">
                 <h3 className="font-serif font-bold italic text-[#1A3A3E] flex items-center gap-2"><ShieldCheck size={20} className="text-[#369EAD]"/> Control de Maestros (Staff)</h3>
@@ -851,7 +889,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
                           <button onClick={() => handleToggleStatus('maestros', t.id, t.status)} className={`p-2 rounded-full ${t.status === 'inactive' ? 'text-green-500' : 'text-red-400'}`}>
                             {t.status === 'inactive' ? <UserCheck size={16}/> : <UserX size={16}/>}
                           </button>
-                          <button onClick={() => { if(window.confirm(`¿Borrar a ${t.name}?`)) deleteDoc(doc(db, 'maestros', t.id)) }} className="p-2 text-red-100 hover:text-red-500"><Trash2 size={16}/></button>
+                          <button onClick={() => deleteTeacher(t.id, t.name)} className="p-2 text-red-100 hover:text-red-500"><Trash2 size={16}/></button>
                         </td>
                       </tr>
                     ))}
@@ -860,7 +898,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
               </div>
             </div>
 
-            {/* TABLA DE ALUMNAS */}
             <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
               <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
                 <h3 className="font-serif font-bold italic text-[#1A3A3E]">Control de Alumnas e Historial</h3>
@@ -922,7 +959,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
                               {isInactive ? <UserCheck size={16}/> : <UserX size={16}/>}
                             </button>
                             <button onClick={() => resetCreditsManual(s.id, s.maxCredits)} className="p-2 text-[#C5A059] hover:bg-amber-50 rounded-full transition-transform hover:scale-110"><Clock size={16}/></button>
-                            <button onClick={() => { if(window.confirm(`¿Borrar permanentemente a ${s.name}? Se perderá todo su historial.`)) deleteDoc(doc(db, 'alumnas', s.id)) }} className="p-2 text-red-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
+                            <button onClick={() => deleteStudent(s.id, s.name)} className="p-2 text-red-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
                           </td>
                         </tr>
                       );
@@ -935,7 +972,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
         </div>
       </div>
 
-      {/* MODAL CLAVE ALUMNAS */}
       {showPassModal && (
         <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#C5A059] animate-in zoom-in font-sans text-center">
@@ -950,7 +986,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
         </div>
       )}
 
-      {/* MODAL CLAVE STAFF */}
       {showStaffPassModal && (
         <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD] animate-in zoom-in font-sans text-center">
@@ -965,7 +1000,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
         </div>
       )}
 
-      {/* MODAL NUEVA ALUMNA */}
       {showAddForm && (
         <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in font-sans">
@@ -996,7 +1030,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
         </div>
       )}
 
-      {/* MODAL NUEVO STAFF */}
       {showStaffForm && (
         <div className="fixed inset-0 bg-[#1A3A3E]/90 backdrop-blur-md z-[500] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] font-sans">
@@ -1037,18 +1070,18 @@ const AdminDashboard = ({ students, teachers, sessionsData, db, onLogout, showNo
   );
 };
 
-// --- VISTA MAESTRA (LUCY) ---
-const TeacherDashboard = ({ user, students, sessionsData, db, onLogout, showNotification }) => {
+const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, showNotification }) => {
   const currentMonth = getCurrentMonthName();
   const teacherClasses = WEEKLY_SCHEDULE.filter(s => s.teacher.toUpperCase() === user.firstName.toUpperCase());
   const nextSession = getNextClassFromSchedule(user.firstName);
   const roster = students.filter(s => s.history?.includes(nextSession?.id) && s.status !== 'inactive');
 
   const handleMarkAttendance = async (studentId, sessionId) => {
+    if (!auth.currentUser) return;
     if (!window.confirm("¿Confirmar asistencia de la alumna?")) return;
     try {
-      const studentRef = doc(db, 'alumnas', studentId);
-      const sessionRef = doc(db, 'sesiones', sessionId);
+      const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', studentId);
+      const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId);
       await updateDoc(studentRef, { 
         totalAttendance: increment(1),
         history: arrayRemove(sessionId) 

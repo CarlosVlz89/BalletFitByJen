@@ -1108,7 +1108,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, s
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
         <div className="mb-10 text-center md:text-left">
            <h2 className="text-4xl font-serif italic text-[#1A3A3E] font-bold">¡Hola, {user.firstName}!</h2>
-           <p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Lista para tu próxima clase</p>
+           <p className="text-[#369EAD] text-sm font-sans uppercase tracking-widest">Tu pasión no solo mueve pesas, mueve vidas enteras. ¡Sigue inspirando!</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">

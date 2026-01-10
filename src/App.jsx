@@ -13,7 +13,8 @@ import {
   arrayUnion,
   arrayRemove,
   query,
-  where
+  where,
+  writeBatch
 } from 'firebase/firestore';
 import { 
   getAuth, 
@@ -47,7 +48,8 @@ import {
   ClipboardList,
   Check,
   UserX,
-  UserCheck
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -63,6 +65,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const appId = "balletfitbyjen-6b36a"; // Consistente con las reglas de storage
 
 const BRAND = {
   teal: '#369EAD',
@@ -130,6 +133,19 @@ const getHoursUntilClass = (dayIdx, timeStr) => {
   classTime.setHours(hours, minutes, 0, 0);
   const diffMs = classTime - now;
   return diffMs / (1000 * 60 * 60);
+};
+
+// Obtener número de semana ISO para el reinicio automático
+const getISOWeekNumber = (date) => {
+  const tdt = new Date(date.valueOf());
+  const day = (date.getDay() + 6) % 7;
+  tdt.setDate(tdt.getDate() - day + 3);
+  const firstThursday = tdt.valueOf();
+  tdt.setMonth(0, 1);
+  if (tdt.getDay() !== 4) {
+    tdt.setMonth(0, 1 + ((4 - tdt.getDay()) + 7) % 7);
+  }
+  return 1 + Math.ceil((firstThursday - tdt) / 604800000);
 };
 
 const isClassInPast = (dayIdx, timeStr) => {
@@ -219,7 +235,6 @@ export default function App() {
     });
 
     if (found) {
-      // Mejora: No permitir ingreso si está de baja
       if (found.status === 'inactive') {
         setError('Tu cuenta está inactiva. Contacta a Jenny.');
         showNotification('Cuenta inactiva', 'error');
@@ -449,7 +464,6 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
   const [paymentAmount, setPaymentAmount] = useState(0);
   const currentMonth = getCurrentMonthName();
 
-  // Mejora: Comunidad Activa (solo alumnas con status 'active')
   const activeStudents = students.filter(s => s.status !== 'inactive');
 
   const getNextAvailableId = (list) => {
@@ -471,8 +485,49 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
     }
   }, [showAddForm, students]);
 
+  // --- NUEVA LÓGICA DE REINICIO AUTOMÁTICO SEMANAL ---
+  useEffect(() => {
+    const checkWeeklyReset = async () => {
+      const metadataRef = doc(db, 'artifacts', appId, 'public', 'metadata', 'settings');
+      const currentWeek = getISOWeekNumber(new Date());
+      
+      try {
+        const docSnap = await getDoc(metadataRef);
+        let lastResetWeek = 0;
+        
+        if (docSnap.exists()) {
+          lastResetWeek = docSnap.data().lastResetWeek || 0;
+        }
+
+        // Si la semana actual es distinta a la del último reinicio, disparamos el proceso
+        if (currentWeek !== lastResetWeek && students.length > 0) {
+          console.log("Triggering weekly reset for all active students...");
+          const batch = writeBatch(db);
+          
+          activeStudents.forEach(s => {
+            const studentRef = doc(db, 'alumnas', s.id);
+            batch.update(studentRef, {
+              credits: s.maxCredits,
+              history: []
+            });
+          });
+
+          // Actualizamos la semana de control
+          await setDoc(metadataRef, { lastResetWeek: currentWeek }, { merge: true });
+          await batch.commit();
+          showNotification('¡Créditos reiniciados para la nueva semana!', 'success');
+        }
+      } catch (err) {
+        console.error("Error in auto-reset:", err);
+      }
+    };
+
+    if (students.length > 0) {
+      checkWeeklyReset();
+    }
+  }, [students.length]);
+
   const nextSession = getNextClassFromSchedule();
-  // Solo alumnas ACTIVAS que reservaron
   const roster = students.filter(s => s.history?.includes(nextSession.id) && s.status !== 'inactive');
 
   const totalIncome = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
@@ -530,7 +585,7 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
         monthlyPayment: 0, 
         totalAttendance: 0,
         notes: newStudent.notes.trim(),
-        status: 'active', // Estado inicial activa
+        status: 'active', 
         registrationDate: new Date().toISOString()
       });
       showNotification('Alumna registrada');
@@ -552,8 +607,8 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
     } catch (err) { console.error(err); }
   };
 
-  const resetCredits = async (id, max) => {
-    if (window.confirm("¿Reiniciar semana? Se limpiarán los créditos pero el historial total se mantiene.")) {
+  const resetCreditsManual = async (id, max) => {
+    if (window.confirm("¿Reiniciar semana manual? Se limpiarán los créditos.")) {
       await updateDoc(doc(db, 'alumnas', id), { credits: max, history: [] });
     }
   };
@@ -723,11 +778,10 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
                             </button>
                           </td>
                           <td className="px-6 py-5 text-right pr-8 space-x-1">
-                            {/* Toggle Baja/Alta */}
                             <button onClick={() => handleToggleStatus(s.id, s.status)} className={`p-2 rounded-full transition-all ${isInactive ? 'text-green-500 hover:bg-green-50' : 'text-gray-300 hover:text-red-400 hover:bg-red-50'}`} title={isInactive ? "Dar de Alta" : "Dar de Baja"}>
                               {isInactive ? <UserCheck size={16}/> : <UserX size={16}/>}
                             </button>
-                            <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-2 text-[#C5A059] hover:bg-amber-50 rounded-full transition-transform hover:scale-110"><Clock size={16}/></button>
+                            <button onClick={() => resetCreditsManual(s.id, s.maxCredits)} className="p-2 text-[#C5A059] hover:bg-amber-50 rounded-full transition-transform hover:scale-110"><Clock size={16}/></button>
                             <button onClick={() => { if(window.confirm(`¿Borrar permanentemente a ${s.name}? Se perderá todo su historial.`)) deleteDoc(doc(db, 'alumnas', s.id)) }} className="p-2 text-red-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
                           </td>
                         </tr>

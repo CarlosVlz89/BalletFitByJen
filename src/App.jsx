@@ -42,7 +42,12 @@ import {
   Info,
   Trophy,
   Activity,
-  Heart
+  Heart,
+  Stethoscope,
+  ClipboardList,
+  Check,
+  UserX,
+  UserCheck
 } from 'lucide-react';
 
 // --- CONFIGURACIÓN DE FIREBASE ---
@@ -97,7 +102,7 @@ const Card = ({ children, className = '' }) => (
 );
 
 const Button = ({ children, onClick, variant = 'primary', disabled = false, className = '' }) => {
-  const baseStyle = "px-6 py-2 rounded-sm font-medium tracking-widest uppercase text-xs transition-all transform active:scale-95 flex items-center justify-center gap-2";
+  const baseStyle = "px-6 py-2 rounded-sm font-sans font-medium tracking-widest uppercase text-xs transition-all transform active:scale-95 flex items-center justify-center gap-2";
   const variants = {
     primary: "bg-[#369EAD] text-white hover:bg-[#1A3A3E]",
     secondary: "border border-[#369EAD] text-[#369EAD] hover:bg-gray-50",
@@ -125,6 +130,27 @@ const getHoursUntilClass = (dayIdx, timeStr) => {
   classTime.setHours(hours, minutes, 0, 0);
   const diffMs = classTime - now;
   return diffMs / (1000 * 60 * 60);
+};
+
+const isClassInPast = (dayIdx, timeStr) => {
+  const now = new Date();
+  const currentDay = now.getDay(); 
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  const currentTimeInMin = now.getHours() * 60 + now.getMinutes();
+  const classTimeInMin = hours * 60 + minutes;
+
+  if (currentDay > dayIdx) return true;
+  if (currentDay === dayIdx && currentTimeInMin >= classTimeInMin) return true;
+  
+  return false;
+};
+
+const getNextClassFromSchedule = () => {
+  const diffs = WEEKLY_SCHEDULE.map(s => ({
+    ...s,
+    diff: getHoursUntilClass(s.dayIdx, s.time)
+  }));
+  return diffs.sort((a, b) => a.diff - b.diff)[0];
 };
 
 const getCurrentMonthName = () => {
@@ -193,6 +219,12 @@ export default function App() {
     });
 
     if (found) {
+      // Mejora: No permitir ingreso si está de baja
+      if (found.status === 'inactive') {
+        setError('Tu cuenta está inactiva. Contacta a Jenny.');
+        showNotification('Cuenta inactiva', 'error');
+        return;
+      }
       setUser({ ...found, firstName: found.name.split(' ')[0], role: 'student' });
       setRandomQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
       setView('student');
@@ -203,7 +235,14 @@ export default function App() {
   };
 
   const handleBooking = async (sessionId) => {
+    const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
     const sessionState = sessionsData[sessionId];
+    
+    if (isClassInPast(sessionConfig.dayIdx, sessionConfig.time)) {
+      showNotification('Esta clase ya ocurrió.', 'error');
+      return;
+    }
+
     if (sessionState?.isClosed) { showNotification('Clase cerrada.', 'error'); return; }
     if (user.credits <= 0) { showNotification('Sin créditos.', 'error'); return; }
 
@@ -212,8 +251,7 @@ export default function App() {
       const sessionRef = doc(db, 'sesiones', sessionId);
       await updateDoc(studentRef, { 
         credits: increment(-1), 
-        history: arrayUnion(sessionId),
-        totalAttendance: increment(1) // Incrementar historial histórico
+        history: arrayUnion(sessionId)
       });
       await setDoc(sessionRef, { booked: increment(1) }, { merge: true });
       showNotification('¡Clase reservada!');
@@ -233,8 +271,7 @@ export default function App() {
       if (!isLateCancellation) {
         await updateDoc(studentRef, { 
           credits: increment(1), 
-          history: arrayRemove(sessionId),
-          totalAttendance: increment(-1) // Descontamos del histórico si cancela a tiempo
+          history: arrayRemove(sessionId)
         });
       } else {
         await updateDoc(studentRef, { history: arrayRemove(sessionId) });
@@ -257,7 +294,7 @@ export default function App() {
       {notification && (
         <div className={`fixed top-4 right-4 z-[150] px-6 py-4 rounded-sm shadow-2xl flex items-center gap-3 animate-in slide-in-from-right-4 duration-300 border-l-4 ${notification.type === 'error' ? 'bg-red-500 text-white border-red-700' : 'bg-[#1A3A3E] text-white border-[#369EAD]'}`}>
           {notification.type === 'error' ? <XCircle size={18} /> : <CheckCircle size={18} />}
-          <span className="text-[10px] font-bold uppercase tracking-widest">{notification.msg}</span>
+          <span className="text-[10px] font-sans font-bold uppercase tracking-widest">{notification.msg}</span>
         </div>
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
@@ -280,13 +317,13 @@ const LoginView = ({ onLogin, error }) => {
         <div className="bg-white/95 backdrop-blur-md p-8 md:p-12 rounded-sm shadow-2xl border-t-8 border-[#369EAD]">
           <div className="text-center mb-10">
             <h1 className="font-serif text-4xl text-[#1A3A3E] mb-1 italic font-bold">Ballet Fit</h1>
-            <span className="text-[10px] uppercase tracking-[0.4em] text-[#369EAD] font-bold">Portal de Alumnas</span>
+            <span className="text-[10px] font-sans uppercase tracking-[0.4em] text-[#369EAD] font-bold">Portal de Alumnas</span>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); onLogin(id, name); }} className="space-y-6">
-            <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
+            <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-sans uppercase text-sm" value={id} onChange={e => setId(e.target.value)} />
             <input type="text" required placeholder="NOMBRE" className="w-full p-4 bg-gray-50 border-b border-gray-100 focus:border-[#369EAD] outline-none font-serif uppercase text-sm" value={name} onChange={e => setName(e.target.value)} />
-            {error && <div className="text-red-500 text-[10px] text-center font-bold animate-pulse">{error}</div>}
-            <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Ingresar</button>
+            {error && <div className="text-red-500 font-sans text-[10px] text-center font-bold animate-pulse leading-tight">{error}</div>}
+            <button type="submit" className="w-full bg-[#1A3A3E] text-white py-5 font-sans uppercase tracking-[0.3em] text-[11px] font-bold hover:bg-[#369EAD] transition-all shadow-lg active:scale-95">Ingresar</button>
           </form>
         </div>
       </div>
@@ -305,15 +342,14 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
       <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-2">
           <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
-          <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] uppercase font-bold flex items-center gap-2 tracking-widest"><span>Salir</span><LogOut size={16} /></button>
+          <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] font-sans uppercase font-bold flex items-center gap-2 tracking-widest"><span>Salir</span><LogOut size={16} /></button>
         </div>
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
-        {/* SALUDO PERSONALIZADO */}
         <div className="mb-10 text-center md:text-left">
-           <h2 className="text-4xl md:text-5xl font-serif italic text-brand-dark font-bold mb-2">¡Hola, {user.firstName}!</h2>
-           <p className="text-brand-teal text-sm md:text-base uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
+           <h2 className="text-4xl md:text-5xl font-serif italic text-[#1A3A3E] font-bold mb-2">¡Hola, {user.firstName}!</h2>
+           <p className="text-[#369EAD] text-sm md:text-base font-sans uppercase tracking-widest flex items-center justify-center md:justify-start gap-2">
              <Heart size={16} fill="#369EAD" /> {quote}
            </p>
         </div>
@@ -323,26 +359,26 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-2xl font-serif text-[#1A3A3E] italic">Resumen de {currentMonth}</h3>
-                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Tus métricas de disciplina</p>
+                <p className="text-xs text-gray-400 font-sans uppercase tracking-widest font-bold">Tus métricas de disciplina</p>
               </div>
-              <div className="bg-brand-tealLight p-3 rounded-full text-brand-teal">
+              <div className="p-3 rounded-full text-[#369EAD]">
                 <Activity size={24} />
               </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-[#EBF5F6] px-6 py-4 rounded-sm border border-brand-teal/10">
-                <span className="block text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-1">Clases del Mes</span>
-                <div className="flex items-baseline gap-1 font-serif">
+              <div className="bg-[#EBF5F6] px-6 py-4 rounded-sm border border-[#369EAD]/10">
+                <span className="block text-[9px] font-sans uppercase tracking-widest text-gray-500 font-bold mb-1">Clases del Mes</span>
+                <div className="flex items-baseline gap-1 font-sans">
                   <span className={`text-4xl font-bold ${user.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{user.credits}</span>
                   <span className="text-gray-300 text-lg">/ {user.maxCredits}</span>
                 </div>
               </div>
-              <div className="bg-brand-dark px-6 py-4 rounded-sm border border-brand-gold/20 text-white">
-                <span className="block text-[9px] uppercase tracking-widest text-brand-gold font-bold mb-1 text-opacity-80">Total Histórico</span>
-                <div className="flex items-baseline gap-1 font-serif">
-                  <span className="text-4xl font-bold text-brand-gold">{user.totalAttendance || 0}</span>
-                  <span className="text-brand-gold text-xs text-opacity-50 ml-1">Sesiones</span>
+              <div className="bg-[#1A3A3E] px-6 py-4 rounded-sm border border-[#C5A059]/20 text-white">
+                <span className="block text-[9px] font-sans uppercase tracking-widest text-[#C5A059] font-bold mb-1 text-opacity-80">Total Histórico</span>
+                <div className="flex items-baseline gap-1 font-sans">
+                  <span className="text-4xl font-bold text-[#C5A059]">{user.totalAttendance || 0}</span>
+                  <span className="text-[#C5A059] text-xs text-opacity-50 ml-1">Sesiones</span>
                 </div>
               </div>
             </div>
@@ -350,13 +386,13 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
 
           <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center shadow-xl relative overflow-hidden group">
              <div className="absolute top-0 right-0 p-2 opacity-5"><Calendar size={120} /></div>
-             <Calendar className="text-brand-gold mb-3 animate-pulse" size={32} />
-             <h3 className="text-[10px] uppercase tracking-widest text-brand-gold mb-2 font-black">Próximo Entrenamiento</h3>
+             <Calendar className="text-[#C5A059] mb-3 animate-pulse" size={32} />
+             <h3 className="text-[10px] font-sans uppercase tracking-widest text-[#C5A059] mb-2 font-black">Próximo Entrenamiento</h3>
              {nextClass ? (
                 <div className="animate-in fade-in duration-500">
-                  <p className="text-2xl italic font-bold text-brand-gold">{nextClass.day}</p>
-                  <p className="text-4xl font-bold my-1 tracking-tighter">{nextClass.time}</p>
-                  <p className="text-[9px] uppercase opacity-40 tracking-widest">Maestra: {nextClass.teacher}</p>
+                  <p className="text-2xl italic font-bold text-[#C5A059]">{nextClass.day}</p>
+                  <p className="text-4xl font-sans font-bold my-1 tracking-tighter">{nextClass.time}</p>
+                  <p className="text-[9px] font-sans uppercase opacity-40 tracking-widest">Maestra: {nextClass.teacher}</p>
                 </div>
              ) : <p className="opacity-40 italic text-sm">Sin clases pendientes</p>}
           </Card>
@@ -369,22 +405,31 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
             const sessionState = sessionsData[s.id] || { booked: 0, isClosed: false };
             const isFull = (sessionState.booked || 0) >= s.spots;
             const isClosed = sessionState.isClosed;
-            const canBook = user.credits > 0 && !isBooked && !isFull && !isClosed;
+            const isPast = isClassInPast(s.dayIdx, s.time); 
+            
+            const canBook = user.credits > 0 && !isBooked && !isFull && !isClosed && !isPast;
+            
             return (
-              <div key={s.id} className={`p-8 rounded-sm border transition-all duration-300 ${isBooked ? 'bg-[#EBF5F6] border-[#369EAD] ring-1 ring-brand-teal/20' : isClosed ? 'bg-gray-50 opacity-60 border-gray-200' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
+              <div key={s.id} className={`p-8 rounded-sm border transition-all duration-300 ${isBooked ? 'bg-[#EBF5F6] border-[#369EAD] ring-1 ring-[#369EAD]/20' : (isClosed || isPast) ? 'bg-gray-50 opacity-60 border-gray-200' : 'bg-white border-gray-100 hover:shadow-lg'}`}>
                 <div className="mb-6">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-start font-sans">
                     <span className="text-[10px] uppercase font-black opacity-40">{s.day}</span>
-                    {isClosed && <span className="bg-red-100 text-red-600 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Feriado</span>}
+                    {isClosed ? (
+                      <span className="bg-red-100 text-red-600 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Feriado</span>
+                    ) : isPast ? (
+                      <span className="bg-gray-200 text-gray-500 text-[8px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Finalizada</span>
+                    ) : null}
                   </div>
-                  <h4 className="text-3xl font-serif italic font-bold">{s.time}</h4>
-                  <p className="text-[10px] text-[#369EAD] font-bold uppercase tracking-widest mt-1">{s.teacher}</p>
+                  <h4 className="text-3xl font-sans italic font-bold">{s.time}</h4>
+                  <p className="text-[10px] font-sans text-[#369EAD] font-bold uppercase tracking-widest mt-1">{s.teacher}</p>
                 </div>
-                <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-50">
+                <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-50 font-sans">
                   <span className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-1"><Users size={12} /> {sessionState.booked || 0}/{s.spots}</span>
                   {isBooked ? 
                     <button onClick={() => onCancel(s.id)} className="text-[10px] text-red-400 font-bold uppercase underline underline-offset-8 decoration-red-100">Cancelar</button> :
-                    <Button onClick={() => onBook(s.id)} disabled={!canBook} className="!px-4 !py-2 !text-[9px]">{isClosed ? 'Cerrado' : isFull ? 'Lleno' : 'Reservar'}</Button>
+                    <Button onClick={() => onBook(s.id)} disabled={!canBook} className="!px-4 !py-2 !text-[9px]">
+                      {isClosed ? 'Cerrado' : isPast ? 'Pasada' : isFull ? 'Lleno' : 'Reservar'}
+                    </Button>
                   }
                 </div>
               </div>
@@ -398,17 +443,68 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
 
 const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification }) => {
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newStudent, setNewStudent] = useState({ id: '', name: '', plan: '2 clases x sem' });
+  const [newStudent, setNewStudent] = useState({ id: '', name: '', plan: '2 clases x sem', notes: '' });
   const [saving, setSaving] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(null); 
   const [paymentAmount, setPaymentAmount] = useState(0);
   const currentMonth = getCurrentMonthName();
+
+  // Mejora: Comunidad Activa (solo alumnas con status 'active')
+  const activeStudents = students.filter(s => s.status !== 'inactive');
+
+  const getNextAvailableId = (list) => {
+    const ids = list
+      .map(s => s.id)
+      .filter(id => id.startsWith('BF-'))
+      .map(id => parseInt(id.split('-')[1]))
+      .filter(num => !isNaN(num));
+    
+    const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+    const nextNum = maxId + 1;
+    return `BF-${String(nextNum).padStart(3, '0')}`;
+  };
+
+  useEffect(() => {
+    if (showAddForm) {
+      const nextId = getNextAvailableId(students);
+      setNewStudent(prev => ({ ...prev, id: nextId }));
+    }
+  }, [showAddForm, students]);
+
+  const nextSession = getNextClassFromSchedule();
+  // Solo alumnas ACTIVAS que reservaron
+  const roster = students.filter(s => s.history?.includes(nextSession.id) && s.status !== 'inactive');
 
   const totalIncome = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
 
   const toggleSessionStatus = async (sessionId, currentStatus) => {
     await setDoc(doc(db, 'sesiones', sessionId), { isClosed: !currentStatus }, { merge: true });
     showNotification('Estado actualizado');
+  };
+
+  const handleMarkAttendance = async (studentId, sessionId) => {
+    if (!window.confirm("¿Confirmar asistencia? Esto sumará la clase al historial de la alumna.")) return;
+    try {
+      const studentRef = doc(db, 'alumnas', studentId);
+      const sessionRef = doc(db, 'sesiones', sessionId);
+      
+      await updateDoc(studentRef, { 
+        totalAttendance: increment(1),
+        history: arrayRemove(sessionId) 
+      });
+      await updateDoc(sessionRef, { booked: increment(-1) });
+      showNotification('Asistencia confirmada');
+    } catch (err) { console.error(err); }
+  };
+
+  const handleToggleStatus = async (studentId, currentStatus) => {
+    const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
+    const msg = newStatus === 'inactive' ? "¿Dar de baja a esta alumna?" : "¿Activar cuenta de esta alumna?";
+    if (!window.confirm(msg)) return;
+    try {
+      await updateDoc(doc(db, 'alumnas', studentId), { status: newStatus });
+      showNotification(`Estado: ${newStatus === 'inactive' ? 'Baja' : 'Activa'}`);
+    } catch (err) { console.error(err); }
   };
 
   const handleRegister = async (e) => {
@@ -425,14 +521,21 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
       }
       const max = parseInt(newStudent.plan.split(' ')[0]) || 2;
       await setDoc(docRef, {
-        id: cleanId, name: newStudent.name.trim().toUpperCase(),
-        plan: newStudent.plan, maxCredits: max, credits: max,
-        history: [], monthlyPayment: 0, totalAttendance: 0,
+        id: cleanId, 
+        name: newStudent.name.trim().toUpperCase(),
+        plan: newStudent.plan, 
+        maxCredits: max, 
+        credits: max,
+        history: [], 
+        monthlyPayment: 0, 
+        totalAttendance: 0,
+        notes: newStudent.notes.trim(),
+        status: 'active', // Estado inicial activa
         registrationDate: new Date().toISOString()
       });
       showNotification('Alumna registrada');
       setShowAddForm(false);
-      setNewStudent({ id: '', name: '', plan: '2 clases x sem' });
+      setNewStudent({ id: '', name: '', plan: '2 clases x sem', notes: '' });
     } catch (err) { console.error(err); }
     setSaving(false);
   };
@@ -460,60 +563,106 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
       <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-3">
           <span className="text-xl font-serif font-black tracking-tight">BF ADMIN</span>
-          <span className="bg-brand-gold text-brand-dark text-[9px] px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
+          <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
         </div>
-        <button onClick={onLogout} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
+        <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-brand-dark !border-[#C5A059] text-white flex items-center gap-6 group">
-            <div className="p-4 bg-[#C5A059] rounded-sm text-brand-dark transition-transform group-hover:rotate-6"><DollarSign size={28} /></div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Caja {currentMonth}</p>
-              <p className="text-3xl font-bold font-serif text-[#C5A059]">${totalIncome.toLocaleString()}</p>
-            </div>
-          </Card>
-          <Card className="flex items-center gap-6 border-brand-teal group">
-            <div className="p-4 bg-brand-teal text-white rounded-sm transition-transform group-hover:scale-110"><Trophy size={28} /></div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Impacto Total</p>
-              <p className="text-3xl font-bold font-serif">{students.reduce((a,b) => a + (b.totalAttendance || 0), 0)} clases dadas</p>
-            </div>
-          </Card>
-          <Card className="bg-[#EBF5F6] border-brand-teal flex items-center gap-6">
-            <div className="p-4 bg-brand-teal rounded-sm text-white"><Users size={28} /></div>
-            <div>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Comunidad</p>
-              <p className="text-3xl font-bold font-serif text-brand-teal">{students.length} Alumnas</p>
-            </div>
-          </Card>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+           <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
+                  <ClipboardList size={20} /> Roster: Próxima Clase
+                </h3>
+                <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
+                  {nextSession.day} {nextSession.time}
+                </span>
+              </div>
+              
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {roster.length > 0 ? roster.map((alumna) => (
+                  <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
+                        <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
+                      </div>
+                      {alumna.notes && (
+                        <div className="mt-2 flex items-start gap-2 text-red-300">
+                          <Stethoscope size={12} className="mt-1 flex-shrink-0" />
+                          <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                    <button 
+                      onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
+                      className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"
+                      title="Pasar Asistencia"
+                    >
+                      <Check size={18} />
+                    </button>
+                  </div>
+                )) : (
+                  <div className="text-center py-10 opacity-30 italic text-sm">Sin inscritas todavía</div>
+                )}
+              </div>
+              <div className="mt-6 pt-4 border-t border-white/10 flex justify-between items-center font-sans">
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest">Pendientes por llegar</span>
+                <span className="font-bold text-[#C5A059]">{roster.length}</span>
+              </div>
+           </Card>
+
+           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
+              <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white flex items-center gap-6 group">
+                <div className="p-4 bg-[#C5A059] rounded-sm text-[#1A3A3E] transition-transform group-hover:rotate-6"><DollarSign size={28} /></div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Caja {currentMonth}</p>
+                  <p className="text-3xl font-bold text-[#C5A059]">${totalIncome.toLocaleString()}</p>
+                </div>
+              </Card>
+              <Card className="flex items-center gap-6 border-[#369EAD] group">
+                <div className="p-4 bg-[#369EAD] text-white rounded-sm transition-transform group-hover:scale-110"><Trophy size={28} /></div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Impacto Total</p>
+                  <p className="text-3xl font-bold">{students.reduce((a,b) => a + (b.totalAttendance || 0), 0)} clases dadas</p>
+                </div>
+              </Card>
+              <Card className="bg-[#EBF5F6] border-[#369EAD] flex items-center gap-6 md:col-span-2">
+                <div className="p-4 bg-[#369EAD] rounded-sm text-white"><Users size={28} /></div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 mb-1">Comunidad Activa</p>
+                  <p className="text-3xl font-bold text-[#369EAD]">{activeStudents.length} Alumnas pagando</p>
+                </div>
+              </Card>
+           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           <div className="lg:col-span-1 space-y-6">
-            <Card className="bg-white border-brand-gold">
-              <h3 className="text-lg font-serif italic font-bold mb-4 flex items-center gap-2 text-brand-dark"><Info size={18} className="text-brand-gold" /> Tarifario</h3>
-              <div className="space-y-3">
+            <Card className="bg-white border-[#C5A059]">
+              <h3 className="text-lg font-serif italic font-bold mb-4 flex items-center gap-2 text-[#1A3A3E]"><Info size={18} className="text-[#C5A059]" /> Tarifario</h3>
+              <div className="space-y-3 font-sans">
                 {PRICES.map((p, idx) => (
                   <div key={idx} className="flex justify-between items-center text-[11px] border-b border-gray-50 pb-2">
                     <span className="text-gray-400 uppercase font-bold">{p.plan}</span>
-                    <span className="font-bold text-brand-teal">${p.price}</span>
+                    <span className="font-bold text-[#369EAD]">${p.price}</span>
                   </div>
                 ))}
               </div>
             </Card>
 
-            <Card className="bg-white border-brand-teal">
+            <Card className="bg-white border-[#369EAD]">
               <h3 className="text-lg font-serif italic font-bold mb-4">Estatus Clases</h3>
-              <div className="space-y-4">
+              <div className="space-y-4 font-sans">
                 {WEEKLY_SCHEDULE.map(s => {
                   const isClosed = sessionsData[s.id]?.isClosed || false;
                   return (
                     <div key={s.id} className="flex justify-between items-center text-xs">
                       <span className="font-bold opacity-60 uppercase tracking-tighter">{s.day}</span>
                       <button onClick={() => toggleSessionStatus(s.id, isClosed)}>
-                        {isClosed ? <ToggleLeft size={30} className="text-red-300" /> : <ToggleRight size={30} className="text-brand-teal" />}
+                        {isClosed ? <ToggleLeft size={30} className="text-red-300" /> : <ToggleRight size={30} className="text-[#369EAD]" />}
                       </button>
                     </div>
                   );
@@ -523,14 +672,17 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
           </div>
 
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
               <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
-                <h3 className="font-bold italic text-brand-dark">Control de Alumnas e Historial</h3>
-                <Button onClick={() => setShowAddForm(true)} className="!px-4 !py-2 !text-[9px]">Registrar</Button>
+                <h3 className="font-serif font-bold italic text-[#1A3A3E]">Control de Alumnas e Historial</h3>
+                <div className="flex gap-2">
+                    <span className="text-[9px] font-sans font-bold uppercase flex items-center gap-1 opacity-50"><Users size={12}/> Total Registros: {students.length}</span>
+                    <Button onClick={() => setShowAddForm(true)} className="!px-4 !py-2 !text-[9px]">Registrar</Button>
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 tracking-widest font-black">
+                  <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 tracking-widest font-black font-sans">
                     <tr>
                       <th className="px-6 py-5">Identificación / Nombre</th>
                       <th className="px-6 py-5 text-center">Créditos</th>
@@ -540,33 +692,47 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {students.map((s) => (
-                      <tr key={s.id} className="hover:bg-gray-50 transition-all text-sm group">
-                        <td className="px-6 py-5">
-                          <div className="flex flex-col md:flex-row md:items-center gap-3">
-                            <span className="text-[10px] font-black text-brand-teal bg-[#EBF5F6] px-2 py-0.5 rounded-sm border border-brand-teal/10 w-fit">{s.id}</span>
-                            <div className="font-bold font-serif italic text-brand-dark">{s.name}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 text-center font-serif">
-                          <span className={`font-bold ${s.credits === 0 ? 'text-red-400' : 'text-brand-teal'}`}>{s.credits}</span>
-                          <span className="text-gray-300 text-xs italic"> / {s.maxCredits}</span>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <span className="text-xs bg-brand-dark text-white px-2 py-1 rounded-sm font-bold shadow-sm">{s.totalAttendance || 0}</span>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                          <button onClick={() => { setShowPaymentModal(s.id); setPaymentAmount(s.monthlyPayment || 0); }}
-                            className={`font-bold font-serif px-3 py-1 rounded text-xs transition-colors ${s.monthlyPayment > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
-                            ${s.monthlyPayment || 0}
-                          </button>
-                        </td>
-                        <td className="px-6 py-5 text-right pr-8 space-x-1">
-                          <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-2 text-brand-gold hover:bg-amber-50 rounded-full transition-transform hover:scale-110"><Clock size={16}/></button>
-                          <button onClick={() => { if(window.confirm(`¿Borrar permanentemente a ${s.name}?`)) deleteDoc(doc(db, 'alumnas', s.id)) }} className="p-2 text-red-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
-                        </td>
-                      </tr>
-                    ))}
+                    {students.map((s) => {
+                      const isInactive = s.status === 'inactive';
+                      return (
+                        <tr key={s.id} className={`hover:bg-gray-50 transition-all text-sm group ${isInactive ? 'opacity-40 grayscale-[0.5]' : ''}`}>
+                          <td className="px-6 py-5">
+                            <div className="flex flex-col md:flex-row md:items-center gap-3">
+                              <span className="text-[10px] font-sans font-black text-[#369EAD] bg-[#EBF5F6] px-2 py-0.5 rounded-sm border border-[#369EAD]/10 w-fit">{s.id}</span>
+                              <div>
+                                 <div className="font-bold font-serif italic text-[#1A3A3E]">{s.name}</div>
+                                 {isInactive ? (
+                                    <span className="text-[8px] uppercase font-bold text-red-400 bg-red-50 px-1 rounded-sm">Baja / Inactiva</span>
+                                 ) : s.notes && (
+                                    <div className="text-[10px] text-red-400 italic font-sans flex items-center gap-1"><Stethoscope size={10}/> {s.notes}</div>
+                                 )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5 text-center font-sans">
+                            <span className={`font-bold ${s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}`}>{s.credits}</span>
+                            <span className="text-gray-300 text-xs italic"> / {s.maxCredits}</span>
+                          </td>
+                          <td className="px-6 py-5 text-center font-sans">
+                            <span className="text-xs bg-[#1A3A3E] text-white px-2 py-1 rounded-sm font-bold shadow-sm">{s.totalAttendance || 0}</span>
+                          </td>
+                          <td className="px-6 py-5 text-center">
+                            <button onClick={() => { setShowPaymentModal(s.id); setPaymentAmount(s.monthlyPayment || 0); }}
+                              className={`font-bold font-sans px-3 py-1 rounded text-xs transition-colors ${s.monthlyPayment > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-400'}`}>
+                              ${s.monthlyPayment || 0}
+                            </button>
+                          </td>
+                          <td className="px-6 py-5 text-right pr-8 space-x-1">
+                            {/* Toggle Baja/Alta */}
+                            <button onClick={() => handleToggleStatus(s.id, s.status)} className={`p-2 rounded-full transition-all ${isInactive ? 'text-green-500 hover:bg-green-50' : 'text-gray-300 hover:text-red-400 hover:bg-red-50'}`} title={isInactive ? "Dar de Alta" : "Dar de Baja"}>
+                              {isInactive ? <UserCheck size={16}/> : <UserX size={16}/>}
+                            </button>
+                            <button onClick={() => resetCredits(s.id, s.maxCredits)} className="p-2 text-[#C5A059] hover:bg-amber-50 rounded-full transition-transform hover:scale-110"><Clock size={16}/></button>
+                            <button onClick={() => { if(window.confirm(`¿Borrar permanentemente a ${s.name}? Se perderá todo su historial.`)) deleteDoc(doc(db, 'alumnas', s.id)) }} className="p-2 text-red-100 hover:text-red-500 transition-all"><Trash2 size={16}/></button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -575,18 +741,24 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
         </div>
       </div>
 
-      {/* MODALES IGUAL QUE ANTES PERO CON ESTILOS PULIDOS */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-brand-dark/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-brand-teal animate-in zoom-in">
+        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md p-10 rounded-sm shadow-2xl relative border-t-8 border-[#369EAD] animate-in zoom-in font-sans">
             <button onClick={() => setShowAddForm(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500"><X size={28} /></button>
             <h3 className="text-2xl font-serif italic mb-6 border-b pb-2">Nueva Alumna</h3>
             <form onSubmit={handleRegister} className="space-y-6">
-              <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
-              <input type="text" required placeholder="NOMBRE COMPLETO" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">ID Alumna (Sugerido)</label>
+                <input type="text" required placeholder="ID (BF-001)" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm font-bold text-[#369EAD]" value={newStudent.id} onChange={e => setNewStudent({...newStudent, id: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-bold text-gray-400 ml-1">Nombre Completo</label>
+                <input type="text" required placeholder="NOMBRE" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none uppercase text-sm font-serif italic font-bold" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+              </div>
               <select className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-sm" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
                 {PRICES.slice(0, 4).map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
               </select>
+              <textarea placeholder="NOTAS MÉDICAS O LESIONES (OPCIONAL)" className="w-full p-4 bg-gray-50 border-b border-gray-100 outline-none text-xs h-24 italic" value={newStudent.notes} onChange={e => setNewStudent({...newStudent, notes: e.target.value})} />
               <Button disabled={saving} className="w-full !py-4 font-bold">{saving ? <Loader2 className="animate-spin" /> : "Guardar Registro"}</Button>
             </form>
           </div>
@@ -594,13 +766,13 @@ const AdminDashboard = ({ students, sessionsData, db, onLogout, showNotification
       )}
 
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-brand-dark/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-brand-gold animate-in zoom-in">
+        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#C5A059] animate-in zoom-in font-sans">
             <h3 className="text-xl font-serif italic mb-6 text-center">Registrar Pago</h3>
             <div className="space-y-4 text-center">
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="number" className="w-full p-4 pl-10 bg-gray-50 border-b border-gray-200 outline-none text-xl font-bold font-serif" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
+                <input type="number" className="w-full p-4 pl-10 bg-gray-50 border-b border-gray-200 outline-none text-xl font-bold font-sans" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
               </div>
               <Button onClick={handlePayment} className="w-full !py-4 font-bold">Confirmar</Button>
               <button onClick={() => setShowPaymentModal(null)} className="text-[10px] uppercase font-bold text-gray-300 tracking-widest hover:text-red-400">Cancelar</button>

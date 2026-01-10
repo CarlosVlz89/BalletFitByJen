@@ -385,7 +385,7 @@ const LoginView = ({ onLogin, error }) => {
         <div className="bg-white/95 backdrop-blur-md p-8 md:p-12 rounded-sm shadow-2xl border-t-8 border-[#369EAD]">
           <div className="text-center mb-10">
             <h1 className="font-serif text-4xl text-[#1A3A3E] mb-1 italic font-bold">Ballet Fit</h1>
-            <span className="text-[10px] font-sans uppercase tracking-[0.4em] text-[#369EAD] font-bold font-black">Acceso Seguro</span>
+            <span className="text-[10px] font-sans uppercase tracking-[0.4em] text-[#369EAD] font-bold font-black">Portal alumnas</span>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); onLogin(id, password); }} className="space-y-6">
             <div className="space-y-1">

@@ -140,7 +140,8 @@ const getHoursUntilClass = (dayIdx, timeStr) => {
 
 const getISOWeekNumber = (date) => {
   const tdt = new Date(date.valueOf());
-  const day = (date.getDay() + 6) % 7;
+  // Ajuste para que el domingo sea el inicio del cambio de semana
+  const day = date.getDay(); 
   tdt.setDate(tdt.getDate() - day + 3);
   const firstThursday = tdt.valueOf();
   tdt.setMonth(0, 1);
@@ -422,7 +423,7 @@ const LoginView = ({ onLogin, error }) => {
     </div>
   );
 };
-
+// --- Panel de estudiantes ---
 const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout }) => {
   const myHistory = user.history || [];
   const mySessions = sessions.filter(s => myHistory.includes(s.id));
@@ -483,7 +484,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
                 <div className="animate-in fade-in duration-500">
                   <p className="text-2xl italic font-bold text-[#C5A059]">{nextClass.day}</p>
                   <p className="text-4xl font-sans font-bold my-1 tracking-tighter">{nextClass.time}</p>
-                  <p className="text-[9px] font-sans uppercase opacity-40 tracking-widest">Maestra: {nextSession.teacher}</p>
+                  <p className="text-[9px] font-sans uppercase opacity-40 tracking-widest">Maestra: {nextClass.teacher}</p>
                 </div>
              ) : <p className="opacity-40 italic text-sm">Sin clases pendientes</p>}
           </Card>

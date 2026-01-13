@@ -746,7 +746,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
         notes: newStudent.notes.trim(),
         registrationDate: newStudent.registrationDate,
         status: 'active', 
-        registrationDate: new Date().toISOString()
       });
       showNotification('Registrada');
       setShowAddForm(false);

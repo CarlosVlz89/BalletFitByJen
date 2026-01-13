@@ -614,6 +614,8 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
   const [extraGuest, setExtraGuest] = useState({ name: '', type: 'Clase Suelta' });
   const activeStudents = students.filter(s => s.status !== 'inactive');
   const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'metadata');
+  const [showCreditModal, setShowCreditModal] = useState(null); // Guardará el ID de la alumna
+  const [manualCredits, setManualCredits] = useState(1);
 
   const getNextAvailableId = (list) => {
     const ids = list
@@ -679,14 +681,31 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
 
   const nextSession = getNextClassFromSchedule();
   const roster = students.filter(s => s.history?.includes(nextSession.id) && s.status !== 'inactive');
-  const totalIncome = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
+  
+  // Sumamos pagos de alumnas + pagos de invitadas/clases sueltas
+  const totalAlumnas = students.reduce((acc, s) => acc + (s.monthlyPayment || 0), 0);
+  const totalExtras = extraGuests ? extraGuests.reduce((acc, g) => acc + (g.totalPaid || 0), 0) : 0;
+  const totalIncome = totalAlumnas + totalExtras;
 
   const toggleSessionStatus = async (sessionId, currentStatus) => {
     if (!auth.currentUser) return;
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId), { isClosed: !currentStatus }, { merge: true });
     showNotification('Estado actualizado');
   };
-
+  const handleManualCreditUpdate = async () => {
+    if (!auth.currentUser || !showCreditModal) return;
+    try {
+      const studentRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', showCreditModal);
+      await updateDoc(studentRef, {
+        credits: increment(parseInt(manualCredits))
+      });
+      showNotification(`Se agregaron ${manualCredits} créditos`);
+      setShowCreditModal(null);
+      setManualCredits(1);
+    } catch (err) {
+      showNotification('Error al actualizar créditos', 'error');
+    }
+  };
   const handleMarkAttendance = async (studentId, sessionId) => {
     if (!auth.currentUser) return;
     if (!window.confirm("¿Confirmar asistencia?")) return;
@@ -712,29 +731,45 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
   };
 
   const handleAddExtraGuest = async (sessionId) => {
-    if (!extraGuest.name.trim()) return showNotification("Escribe un nombre", "error");
-    
-    try {
-      // 1. Guardamos el registro de la invitada
-      const extraRef = collection(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras');
-      await setDoc(doc(extraRef), {
-        sessionId,
-        name: extraGuest.name.trim().toUpperCase(),
-        type: extraGuest.type,
-        date: new Date().toISOString()
+  if (!extraGuest.name.trim()) return showNotification("Escribe un nombre", "error");
+  
+  try {
+    const nameKey = extraGuest.name.trim().toUpperCase();
+    const guestRef = doc(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras', nameKey);
+    const guestSnap = await getDoc(guestRef);
+
+    if (guestSnap.exists()) {
+      // Si ya existe, actualizamos sus datos
+      await updateDoc(guestRef, {
+        totalVisits: increment(1),
+        lastSessionId: sessionId,
+        lastDate: new Date().toISOString(),
+        totalPaid: increment(extraGuest.type === 'Clase Suelta' ? 150 : 0) // Asumiendo 150 por suelta
       });
-
-      // 2. Sumamos un lugar al cupo de la sesión actual
-      const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId);
-      await setDoc(sessionRef, { booked: increment(1) }, { merge: true });
-
-      showNotification('Invitada agregada');
-      setShowExtraModal(false);
-      setExtraGuest({ name: '', type: 'Clase Suelta' });
-    } catch (err) {
-      showNotification('Error al agregar', 'error');
+    } else {
+      // Si es nueva, creamos el registro
+      await setDoc(guestRef, {
+        name: nameKey,
+        type: extraGuest.type,
+        totalVisits: 1,
+        totalPaid: extraGuest.type === 'Clase Suelta' ? 150 : 0,
+        firstVisit: new Date().toISOString(),
+        lastSessionId: sessionId,
+        status: 'prospect'
+      });
     }
-  };
+
+    // Sumamos al cupo de la sesión
+    const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId);
+    await setDoc(sessionRef, { booked: increment(1) }, { merge: true });
+
+    showNotification(guestSnap.exists() ? 'Visita recurrente registrada' : 'Nueva invitada registrada');
+    setShowExtraModal(false);
+    setExtraGuest({ name: '', type: 'Clase Suelta' });
+  } catch (err) {
+    showNotification('Error al procesar invitada', 'error');
+  }
+};
 
   const handleToggleStatus = async (collectionName, id, currentStatus) => {
     if (!auth.currentUser) return;
@@ -960,9 +995,14 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
 
            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
               <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white flex items-center gap-6 group">
-                <div className="p-4 bg-[#C5A059] rounded-sm text-[#1A3A3E] group-hover:rotate-6 transition-transform"><DollarSign size={28} /></div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">Caja {currentMonth}</p>
+                <div className="p-4 bg-[#C5A059] rounded-sm text-[#1A3A3E] group-hover:rotate-6 transition-transform">
+                  <DollarSign size={28} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1 flex justify-between">
+                    <span>Caja {currentMonth}</span>
+                    <span className="text-[#C5A059] opacity-70">Incluye ${totalExtras} de extras</span>
+                  </p>
                   <p className="text-3xl font-bold text-[#C5A059]">${totalIncome.toLocaleString()}</p>
                 </div>
               </Card>
@@ -1171,7 +1211,8 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                             <button onClick={() => handleToggleStatus('alumnas', s.id, s.status)} className={`p-2 rounded-full ${isInactive ? 'text-green-500' : 'text-gray-300'}`}>
                               {isInactive ? <UserCheck size={16}/> : <UserX size={16}/>}
                             </button>
-                            <button onClick={() => resetCreditsManual(s.id, s.maxCredits)} className="p-2 text-[#C5A059]"><Clock size={16}/></button>
+                            {/* Reemplaza tu botón del Clock por este: */}
+                            <button onClick={() => {setShowCreditModal(s.id);setManualCredits(1); }} className="p-2 text-[#369EAD] hover:bg-[#EBF5F6] rounded-full transition-all"title="Sumar créditos manualmente"> <RefreshCw size={16}/></button>
                             <button onClick={() => deleteStudent(s.id, s.name)} className="p-2 text-red-100 hover:text-red-500"><Trash2 size={16}/></button>
                           </td>
                         </tr>
@@ -1181,6 +1222,85 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                 </table>
               </div>
             </div>
+            {/* --- PANEL DE CONTROL DE INVITADAS Y PROSPECTOS --- */}
+<div className="bg-white rounded-sm shadow-xl border border-[#C5A059]/30 overflow-hidden font-sans mt-12">
+  <div className="p-6 border-b border-[#C5A059]/20 bg-[#C5A059]/5 flex justify-between items-center">
+    <h3 className="font-serif font-bold italic text-[#1A3A3E] flex items-center gap-2">
+      <Users size={20} className="text-[#C5A059]"/> Historial de Invitadas y Extras
+    </h3>
+    <div className="text-right">
+      <p className="text-[10px] text-gray-400 uppercase font-black">Recaudación Sueltas</p>
+      <p className="text-xl font-bold text-[#C5A059]">
+        ${extraGuests ? extraGuests.reduce((acc, g) => acc + (g.totalPaid || 0), 0).toLocaleString() : 0}
+      </p>
+    </div>
+  </div>
+  <div className="overflow-x-auto">
+    <table className="w-full text-left">
+      <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 font-black">
+        <tr>
+          <th className="px-6 py-4">Nombre</th>
+          <th className="px-6 py-4 text-center">Visitas</th>
+          <th className="px-6 py-4 text-center">Último Tipo</th>
+          <th className="px-6 py-4 text-center">Total Pagado</th>
+          <th className="px-6 py-4 text-right pr-10">Acciones</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-50">
+        {extraGuests && extraGuests.length > 0 ? extraGuests.map((guest) => (
+          <tr key={guest.id} className="hover:bg-gray-50 text-sm">
+            <td className="px-6 py-4">
+              <div className="font-bold font-serif italic text-[#1A3A3E]">{guest.name}</div>
+              <div className="text-[9px] text-gray-400 uppercase">
+                {guest.firstVisit ? `Desde: ${new Date(guest.firstVisit).toLocaleDateString()}` : 'Registro antiguo'}
+              </div>
+            </td>
+            <td className="px-6 py-4 text-center">
+              <span className="bg-[#1A3A3E] text-white px-2 py-0.5 rounded-full text-xs font-bold">
+                {guest.totalVisits || 1}
+              </span>
+            </td>
+            <td className="px-6 py-4 text-center text-[10px] font-black uppercase">
+              {guest.type}
+            </td>
+            <td className="px-6 py-4 text-center">
+              <span className="text-green-600 font-bold">${guest.totalPaid || 0}</span>
+            </td>
+            <td className="px-6 py-4 text-right pr-8 space-x-2">
+              <button 
+                onClick={() => {
+                  if(window.confirm(`¿Convertir a ${guest.name} en alumna oficial?`)) {
+                    setNewStudent({ ...newStudent, name: guest.name });
+                    setShowAddForm(true);
+                  }
+                }}
+                className="p-2 text-[#369EAD] hover:bg-[#EBF5F6] rounded-full transition-all"
+                title="Convertir a Alumna"
+              >
+                <UserCheck size={18} />
+              </button>
+              <button 
+                onClick={async () => {
+                  if(window.confirm("¿Borrar historial de esta invitada?")) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras', guest.id));
+                    showNotification("Historial borrado");
+                  }
+                }}
+                className="p-2 text-red-200 hover:text-red-500 rounded-full transition-all"
+              >
+                <Trash2 size={16} />
+              </button>
+            </td>
+          </tr>
+        )) : (
+          <tr>
+            <td colSpan="5" className="text-center py-10 opacity-30 italic text-sm">No hay registro de invitadas todavía</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
           </div>
         </div>
       </div>
@@ -1295,7 +1415,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
             className="w-full p-3 bg-gray-50 border-b border-gray-200 outline-none font-bold uppercase text-sm"
             value={extraGuest.name}
             onChange={e => setExtraGuest({...extraGuest, name: e.target.value})}
-            placeholder="MARIA PÉREZ"
+            placeholder="Ingresa nombre"
             autoFocus
           />
         </div>
@@ -1316,6 +1436,43 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
         <button 
           onClick={() => setShowExtraModal(false)} 
           className="w-full text-[10px] uppercase font-bold text-gray-300 hover:text-red-400 mt-2"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+{showCreditModal && (
+  <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[500] flex items-center justify-center p-4">
+    <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD]">
+      <h3 className="text-xl font-serif italic mb-2 text-center text-[#1A3A3E]">Ajuste de Créditos</h3>
+      <p className="text-[10px] text-center text-gray-400 uppercase font-black mb-6">ID: {showCreditModal}</p>
+      
+      <div className="space-y-6">
+        <div className="flex items-center justify-center gap-6">
+          <button 
+            onClick={() => setManualCredits(Math.max(1, manualCredits - 1))}
+            className="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center text-xl font-bold hover:bg-gray-50"
+          > - </button>
+          <span className="text-4xl font-sans font-bold text-[#369EAD]">{manualCredits}</span>
+          <button 
+            onClick={() => setManualCredits(manualCredits + 1)}
+            className="w-10 h-10 rounded-full border-2 border-gray-200 flex items-center justify-center text-xl font-bold hover:bg-gray-50"
+          > + </button>
+        </div>
+        
+        <p className="text-[9px] text-center text-gray-400 italic">
+          Esto sumará los créditos a los que la alumna ya tenga disponibles actualmente.
+        </p>
+
+        <Button onClick={handleManualCreditUpdate} className="w-full !py-4 font-bold">
+          Confirmar y Sumar
+        </Button>
+        
+        <button 
+          onClick={() => setShowCreditModal(null)} 
+          className="w-full text-[10px] uppercase font-bold text-gray-300 hover:text-red-400"
         >
           Cancelar
         </button>

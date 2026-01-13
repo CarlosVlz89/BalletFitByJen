@@ -191,6 +191,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [randomQuote, setRandomQuote] = useState("");
+  const [extraGuests, setExtraGuests] = useState([]);
 
   const showNotification = (msg, type = 'success') => {
     setNotification({ msg, type });
@@ -240,9 +241,15 @@ export default function App() {
             // Inicializar si no existe
             setDoc(settingsDoc, { totalClassesTaught: 0, lastResetWeek: 0 }, { merge: true });
           }
-        });
 
-        return () => { unsubStudents(); unsubTeachers(); unsubSessions(); unsubSettings(); };
+        const extraCol = collection(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras');
+        const unsubExtra = onSnapshot(extraCol, (snapshot) => {
+          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          setExtraGuests(list);
+        });
+        });
+        return () => { unsubStudents(); unsubTeachers(); unsubSessions(); unsubSettings(); unsubExtra(); };
+  
       });
     };
     startApp();
@@ -395,7 +402,7 @@ export default function App() {
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
       {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} onUpdatePassword={handleUpdateOwnPassword} />}
-      {view === 'admin' && <AdminDashboard students={students} teachers={teachers} sessionsData={sessionsData} settings={settings} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} />}
+      {view === 'admin' && <AdminDashboard students={students} teachers={teachers} sessionsData={sessionsData} settings={settings} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} extraGuests={extraGuests} />}
       {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} onUpdatePassword={handleUpdateOwnPassword} />}
     </div>
   );
@@ -576,7 +583,7 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
 // ----------------------------------------
 //---------- Panel de Jenny----------------
 //-----------------------------------------
-const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId, onLogout, showNotification }) => {
+const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId, onLogout, showNotification, extraGuests = [] }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [showPassModal, setShowPassModal] = useState(null); 
@@ -869,48 +876,88 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
-                  <ClipboardList size={20} /> Roster: Próxima Clase
-                </h3>
-                <button 
-                  onClick={() => setShowExtraModal(true)}
-                  className="mt-2 w-full py-2 bg-[#C5A059]/20 border border-[#C5A059] text-[#C5A059] text-[9px] font-black uppercase tracking-widest rounded-sm hover:bg-[#C5A059] hover:text-[#1A3A3E] transition-all flex items-center justify-center gap-2"
-                >
-                  <UserPlus size={14} /> + Añadir Extra (Suelta/Prueba)
-                </button>
-                <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
-                  {nextSession.day} {nextSession.time}
-                </span>
-              </div>
-              
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {roster.length > 0 ? roster.map((alumna) => (
-                  <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
-                        <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
-                      </div>
-                      {alumna.notes && (
-                        <div className="mt-2 flex items-start gap-2 text-red-300">
-                          <Stethoscope size={12} className="mt-1 flex-shrink-0" />
-                          <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                    <button 
-                      onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
-                      className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"
-                    >
-                      <Check size={18} />
-                    </button>
-                  </div>
-                )) : (
-                  <div className="text-center py-10 opacity-30 italic text-sm">Sin inscritas</div>
-                )}
-              </div>
-           </Card>
+              {/* Cabecera del Roster */}
+                <div className="mb-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
+                     <ClipboardList size={20} /> Roster
+                    </h3>
+                    <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
+                      {nextSession.day} {nextSession.time}
+                    </span>
+         </div>
+
+        {/* Botón de Invitada (Ahora sí se verá porque tiene su propia fila) */}
+        <button 
+          onClick={() => setShowExtraModal(true)}
+          className="w-full py-3 bg-[#C5A059] text-[#1A3A3E] text-[10px] font-black uppercase tracking-[0.2em] rounded-sm hover:bg-white transition-all flex items-center justify-center gap-2 shadow-lg"
+        >
+          <UserPlus size={14} /> + Invitada Extra
+      </button>
+    </div>
+  
+  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+    {/* 1. Lista de Alumnas Regulares */}
+    {roster.length > 0 ? roster.map((alumna) => (
+      <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm hover:bg-white/10 transition-all flex justify-between items-center gap-4">
+        <div className="flex-1">
+          <div className="flex justify-between items-start">
+            <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
+            <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
+          </div>
+          {alumna.notes && (
+            <div className="mt-2 flex items-start gap-2 text-red-300">
+              <Stethoscope size={12} className="mt-1 flex-shrink-0" />
+              <p className="text-[10px] italic font-sans opacity-90 leading-tight">{alumna.notes}</p>
+            </div>
+          )}
+        </div>
+        <button 
+          onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
+          className="p-2 bg-[#369EAD] hover:bg-white hover:text-[#369EAD] text-white rounded-full transition-all shadow-lg"
+        >
+          <Check size={18} />
+        </button>
+      </div>
+    )) : null}
+
+    {/* 2. Lista de Invitadas Extras (Suelta/Prueba) */}
+    {/* Solo mostramos las que pertenecen a esta sesión específica */}
+    {typeof extraGuests !== 'undefined' && extraGuests.filter(g => g.sessionId === nextSession.id).map((guest) => (
+      <div key={guest.id} className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-sm flex justify-between items-center gap-4 border-l-4 border-l-[#C5A059]">
+        <div className="flex-1">
+          <div className="flex justify-between items-start">
+            <div className="flex flex-col">
+              <span className="font-serif italic font-bold text-sm text-[#C5A059]">{guest.name}</span>
+              <span className="text-[8px] font-sans uppercase font-black opacity-60">Invitada Extra</span>
+            </div>
+            <span className="text-[8px] font-sans bg-[#C5A059] text-[#1A3A3E] px-2 py-0.5 rounded font-black uppercase tracking-tighter">
+              {guest.type === 'Clase Suelta' ? '$ SUELTA' : 'PRUEBA'}
+            </span>
+          </div>
+        </div>
+        {/* Botón para eliminar invitada en caso de error */}
+        <button 
+          onClick={async () => {
+            if(window.confirm("¿Eliminar invitada?")) {
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras', guest.id));
+              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', nextSession.id), { booked: increment(-1) });
+              showNotification("Invitada eliminada");
+            }
+          }}
+          className="p-2 text-red-400 hover:text-red-600 transition-colors"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    ))}
+
+    {/* Mensaje si no hay nadie */}
+    {roster.length === 0 && (!extraGuests || extraGuests.filter(g => g.sessionId === nextSession.id).length === 0) && (
+      <div className="text-center py-10 opacity-30 italic text-sm text-white">Sin inscritas ni extras</div>
+    )}
+  </div>
+</Card>
 
            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 font-sans">
               <Card className="bg-[#1A3A3E] !border-[#C5A059] text-white flex items-center gap-6 group">

@@ -877,7 +877,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
     <div className="pb-20">
       <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-3">
-          <span className="text-xl font-serif font-black tracking-tight">BF ADMIN</span>
+          <span className="text-xl font-serif font-black tracking-tight">BFG ADMIN</span>
           <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
         </div>
         <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>

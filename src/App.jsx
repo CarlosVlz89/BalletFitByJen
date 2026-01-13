@@ -582,7 +582,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
   const [showPassModal, setShowPassModal] = useState(null); 
   const [showStaffPassModal, setShowStaffPassModal] = useState(null);
   const [newPassValue, setNewPassValue] = useState("");
-  const [newStudent, setNewStudent] = useState({ id: '', name: '', password: '', plan: '2 clases x sem', notes: '' });
+  const [newStudent, setNewStudent] = useState({ id: '', name: '', password: '', plan: '2 clases x sem', notes: '',registrationDate: new Date().toISOString().split('T')[0] });
   const [newStaff, setNewStaff] = useState({ id: '', name: '', password: '', role: 'teacher' });
   const [saving, setSaving] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(null); 
@@ -738,6 +738,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
         monthlyPayment: 0, 
         totalAttendance: 0,
         notes: newStudent.notes.trim(),
+        registrationDate: newStudent.registrationDate,
         status: 'active', 
         registrationDate: new Date().toISOString()
       });
@@ -1065,6 +1066,16 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
               <select className="w-full p-4 bg-gray-50 border-b outline-none text-sm" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
                 {PRICES.slice(0, 4).map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
               </select>
+              <div className="space-y-1">
+                <label className="text-[9px] font-sans font-black uppercase text-gray-400 tracking-widest ml-1">Fecha de Inscripción</label>
+                  <input 
+                    type="date" 
+                    required 
+                    className="w-full p-4 bg-gray-50 border-b outline-none text-sm font-bold text-[#1A3A3E]" 
+                    value={newStudent.registrationDate} 
+                    onChange={e => setNewStudent({...newStudent, registrationDate: e.target.value})} 
+                  />
+              </div>
               <textarea placeholder="NOTAS MÉDICAS" className="w-full p-4 bg-gray-50 border-b outline-none text-xs h-24 italic" value={newStudent.notes} onChange={e => setNewStudent({...newStudent, notes: e.target.value})} />
               <Button disabled={saving} className="w-full !py-4 font-bold">{saving ? <Loader2 className="animate-spin mx-auto" /> : "Guardar Registro"}</Button>
             </form>

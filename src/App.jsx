@@ -886,74 +886,57 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
-  {/* 1. Cabecera y Botón */}
-  <div className="mb-6 space-y-4">
-    <div className="flex justify-between items-center">
+  {/* Cabecera */}
+  <div className="mb-6">
+    <div className="flex justify-between items-center mb-4">
       <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
         <ClipboardList size={20} /> Roster
       </h3>
       <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
-        {nextSession?.day} {nextSession?.time}
+        {nextSession?.day || 'Hoy'}
       </span>
     </div>
 
-    {/* BOTÓN DORADO PRINCIPAL - Fuera del div del título para que no se pierda */}
+    {/* Botón Dorado */}
     <button 
+      type="button"
       onClick={() => setShowExtraModal(true)}
-      className="w-full py-3 bg-[#C5A059] text-[#1A3A3E] text-[10px] font-black uppercase tracking-[0.2em] rounded-sm hover:bg-white transition-all flex items-center justify-center gap-2 shadow-lg"
+      className="w-full py-3 bg-[#C5A059] text-[#1A3A3E] text-[10px] font-black uppercase tracking-[0.2em] rounded-sm hover:bg-white transition-all flex items-center justify-center gap-2"
     >
       <UserPlus size={14} /> + Invitada Extra
     </button>
   </div>
   
-  {/* 2. Listado Scrolleable */}
   <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-    {/* Lista de Alumnas Regulares */}
-    {roster.length > 0 ? roster.map((alumna) => (
-      <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm flex justify-between items-center gap-4">
-        <div className="flex-1">
-          <div className="flex justify-between items-start">
-            <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
-            <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
-          </div>
-        </div>
-        <button 
-          onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
-          className="p-2 bg-[#369EAD] text-white rounded-full hover:bg-white hover:text-[#369EAD] transition-colors"
-        >
+    {/* Alumnas */}
+    {roster && roster.length > 0 ? roster.map((alumna) => (
+      <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm flex justify-between items-center">
+        <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
+        <button onClick={() => handleMarkAttendance(alumna.id, nextSession.id)} className="p-2 bg-[#369EAD] text-white rounded-full">
           <Check size={18} />
         </button>
       </div>
     )) : null}
 
-    {/* Lista de Invitadas Extras */}
+    {/* Invitadas */}
     {extraGuests && extraGuests.filter(g => g.sessionId === nextSession?.id).map((guest) => (
-      <div key={guest.id} className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-sm flex justify-between items-center gap-4 border-l-4 border-l-[#C5A059]">
-        <div className="flex-1">
-          <div className="flex flex-col">
-            <span className="font-serif italic font-bold text-sm text-[#C5A059]">{guest.name}</span>
-            <span className="text-[8px] font-sans uppercase font-black opacity-60">
-              {guest.type === 'Clase Suelta' ? '$ Suelta' : 'Prueba'}
-            </span>
-          </div>
+      <div key={guest.id} className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-sm flex justify-between items-center border-l-4 border-l-[#C5A059]">
+        <div className="flex flex-col">
+          <span className="font-serif italic font-bold text-sm text-[#C5A059]">{guest.name}</span>
+          <span className="text-[8px] uppercase opacity-60">{guest.type}</span>
         </div>
-        <button 
-          onClick={async () => {
-            if(window.confirm("¿Eliminar?")) {
-              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras', guest.id));
-              await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', nextSession.id), { booked: increment(-1) });
-            }
-          }}
-          className="text-red-400 p-2 hover:bg-red-500/20 rounded-full transition-all"
-        >
-          <Trash2 size={16} />
-        </button>
+        <button onClick={async () => {
+          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras', guest.id));
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', nextSession.id), { booked: increment(-1) });
+        }} className="text-red-400 p-1"><Trash2 size={14} /></button>
       </div>
     ))}
 
-    {/* Mensaje de lista vacía */}
-    {roster.length === 0 && (!extraGuests || extraGuests.filter(g => g.sessionId === nextSession?.id).length === 0) && (
-      <div className="text-center py-10 opacity-30 italic text-sm">Sin asistentes hoy</div>
+    {/* Mensaje de Control */}
+    {(!roster || roster.length === 0) && (!extraGuests || extraGuests.filter(g => g.sessionId === nextSession?.id).length === 0) && (
+      <div className="text-center py-10 opacity-30 italic text-sm">
+        MODO INVITADA ACTIVO
+      </div>
     )}
   </div>
 </Card>

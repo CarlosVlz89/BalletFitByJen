@@ -331,7 +331,22 @@ export default function App() {
       showNotification('¡Clase reservada!');
     } catch (err) { showNotification('Error al reservar', 'error'); }
   };
-
+  const handleUpdateOwnPassword = async (collectionName, id, newPassword) => {
+    if (!newPassword.trim()) {
+      showNotification('La contraseña no puede estar vacía', 'error');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, id), { 
+        password: newPassword.trim() 
+      });
+      showNotification('Contraseña actualizada con éxito');
+      // Actualizamos el estado local del usuario para que se refleje el cambio
+      setUser(prev => ({ ...prev, password: newPassword.trim() }));
+    } catch (err) {
+      showNotification('Error al actualizar contraseña', 'error');
+    }
+  };
   const handleCancel = async (sessionId) => {
     if (!auth.currentUser) return;
     const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
@@ -379,9 +394,9 @@ export default function App() {
         </div>
       )}
       {view === 'login' && <LoginView onLogin={handleLogin} error={error} />}
-      {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} />}
+      {view === 'student' && <StudentDashboard user={user} quote={randomQuote} sessions={WEEKLY_SCHEDULE} sessionsData={sessionsData} onBook={handleBooking} onCancel={handleCancel} onLogout={handleLogout} onUpdatePassword={handleUpdateOwnPassword} />}
       {view === 'admin' && <AdminDashboard students={students} teachers={teachers} sessionsData={sessionsData} settings={settings} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} />}
-      {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} />}
+      {view === 'teacher' && <TeacherDashboard user={user} students={students} sessionsData={sessionsData} db={db} appId={appId} onLogout={handleLogout} showNotification={showNotification} onUpdatePassword={handleUpdateOwnPassword} />}
     </div>
   );
 }
@@ -424,18 +439,38 @@ const LoginView = ({ onLogin, error }) => {
   );
 };
 // --- Panel de estudiantes ---
-const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout }) => {
+const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout, onUpdatePassword }) => {
   const myHistory = user.history || [];
   const mySessions = sessions.filter(s => myHistory.includes(s.id));
   const nextClass = mySessions.length > 0 ? mySessions[0] : null;
   const currentMonth = getCurrentMonthName();
-
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [newPass, setNewPass] = useState("");
+  
   return (
     <div className="pb-20">
       <nav className="bg-white shadow-sm border-b border-gray-100 p-4 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto flex justify-between items-center px-2">
           <span className="text-2xl text-[#369EAD] font-serif font-black">BF</span>
+          <div className="flex items-center gap-4">
+            <button onClick={() => setShowPassModal(true)} className="text-gray-400 hover:text-[#369EAD] text-[10px] font-sans uppercase font-bold flex items-center gap-2 tracking-widest">
+              <Key size={16} /> <span>Mi Clave</span>
+            </button>
+            <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] font-sans uppercase font-bold flex items-center gap-2 tracking-widest">
+              <span>Salir</span><LogOut size={16} />
+            </button>
+          </div>
           <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] font-sans uppercase font-bold flex items-center gap-2 tracking-widest"><span>Salir</span><LogOut size={16} /></button>
+          {showPassModal && (
+            <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD] text-center">
+                 <h3 className="text-xl font-serif italic mb-2">Mi Nueva Clave</h3>
+                 <input type="text" className="w-full p-4 bg-gray-50 border-b border-gray-200 outline-none text-center font-bold mb-4" placeholder="Escribe aquí" value={newPass} onChange={e => setNewPass(e.target.value)} />
+                 <Button onClick={() => { onUpdatePassword('alumnas', user.id, newPass); setShowPassModal(false); }} className="w-full !py-4">Actualizar</Button>
+                 <button onClick={() => setShowPassModal(false)} className="mt-4 text-[10px] uppercase font-bold text-gray-300">Cerrar</button>
+              </div>
+          </div>
+          )}
         </div>
       </nav>
 
@@ -1074,12 +1109,18 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
   );
 };
 
-const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, showNotification }) => {
+// ------------------------------------------
+// ------- Panel maestras -------------------
+//-------------------------------------------
+const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, showNotification, onUpdatePassword }) => {
   const currentMonth = getCurrentMonthName();
   const teacherClasses = WEEKLY_SCHEDULE.filter(s => s.teacher.toUpperCase() === user.firstName.toUpperCase());
   const nextSession = getNextClassFromSchedule(user.firstName);
   const roster = students.filter(s => s.history?.includes(nextSession?.id) && s.status !== 'inactive');
   const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'metadata');
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [newPass, setNewPass] = useState("");
+
 
   const handleMarkAttendance = async (studentId, sessionId) => {
     if (!auth.currentUser) return;
@@ -1109,7 +1150,20 @@ const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, s
           <span className="text-xl font-serif font-black tracking-tight uppercase">Portal Maestras</span>
           <span className="bg-[#369EAD] text-white text-[9px] px-2 py-0.5 rounded font-black uppercase">{user.firstName}</span>
         </div>
-        <button onClick={onLogout} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
+        <div className="flex items-center gap-4">
+          <button onClick={() => setShowPassModal(true)} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100 tracking-widest flex items-center gap-2"><Key size={14}/> Clave</button>
+          <button onClick={onLogout} className="text-[10px] uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
+        </div>
+        {showPassModal && (
+          <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD] text-center">
+              <h3 className="text-xl font-serif italic mb-2 text-[#1A3A3E]">Cambiar mi Clave</h3>
+              <input type="text" className="w-full p-4 bg-gray-50 border-b outline-none text-center font-bold mb-6" value={newPass} onChange={e => setNewPass(e.target.value)} />
+              <Button onClick={() => { onUpdatePassword('maestros', user.id, newPass); setShowPassModal(false); setNewPass(""); }} className="w-full">Actualizar</Button>
+              <button onClick={() => setShowPassModal(false)} className="mt-4 text-[10px] uppercase font-bold text-gray-400">Cerrar</button>
+            </div>
+          </div>
+      )}      
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">

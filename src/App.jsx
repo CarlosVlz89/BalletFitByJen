@@ -582,6 +582,8 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
   const [showPassModal, setShowPassModal] = useState(null); 
   const [showStaffPassModal, setShowStaffPassModal] = useState(null);
   const [newPassValue, setNewPassValue] = useState("");
+  const [editingDateId, setEditingDateId] = useState(null);
+  const [tempDate, setTempDate] = useState("");
   const [newStudent, setNewStudent] = useState({ id: '', name: '', password: '', plan: '2 clases x sem', notes: '',registrationDate: new Date().toISOString().split('T')[0] });
   const [newStaff, setNewStaff] = useState({ id: '', name: '', password: '', role: 'teacher' });
   const [saving, setSaving] = useState(false);
@@ -747,6 +749,17 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
       setNewStudent({ id: '', name: '', password: '', plan: '2 clases x sem', notes: '' });
     } catch (err) { console.error(err); }
     setSaving(false);
+  };
+
+  const handleUpdateRegistrationDate = async (studentId, newDate) => {
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', studentId);
+      await updateDoc(docRef, { registrationDate: newDate });
+      showNotification('Fecha actualizada correctamente');
+      setEditingDateId(null); // Cerramos el modo edición
+    } catch (err) {
+      showNotification('Error al actualizar fecha', 'error');
+    }
   };
 
   const handleRegisterStaff = async (e) => {
@@ -1066,16 +1079,36 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
               <select className="w-full p-4 bg-gray-50 border-b outline-none text-sm" value={newStudent.plan} onChange={e => setNewStudent({...newStudent, plan: e.target.value})}>
                 {PRICES.slice(0, 4).map((p, i) => <option key={i} value={p.plan}>{p.plan}</option>)}
               </select>
-              <div className="space-y-1">
-                <label className="text-[9px] font-sans font-black uppercase text-gray-400 tracking-widest ml-1">Fecha de Inscripción</label>
+              <div className="text-[9px] text-gray-400 font-sans uppercase tracking-tighter flex items-center gap-1 mt-0.5">
+                 <Calendar size={10} />
+                  {editingDateId === s.id ? (
+                <div className="flex items-center gap-2">
                   <input 
                     type="date" 
-                    required 
-                    className="w-full p-4 bg-gray-50 border-b outline-none text-sm font-bold text-[#1A3A3E]" 
-                    value={newStudent.registrationDate} 
-                    onChange={e => setNewStudent({...newStudent, registrationDate: e.target.value})} 
+                    className="border-b border-[#369EAD] bg-transparent outline-none text-black font-bold"
+                    value={tempDate}
+                    onChange={(e) => setTempDate(e.target.value)}
                   />
-              </div>
+                <button 
+                  onClick={() => handleUpdateRegistrationDate(s.id, tempDate)}
+                  className="text-[#369EAD] font-black"
+                >
+                OK
+                </button>
+                <button onClick={() => setEditingDateId(null)}>X</button>
+                </div>
+                ) : (
+                <span 
+                  className="cursor-pointer hover:text-[#369EAD] underline decoration-dotted"
+                  onClick={() => {
+                  setEditingDateId(s.id);
+                  setTempDate(s.registrationDate || new Date().toISOString().split('T')[0]);
+                  }}
+                >
+                  Inscrita: {s.registrationDate || 'Sin fecha'}
+                </span>
+                )}
+            </div>
               <textarea placeholder="NOTAS MÉDICAS" className="w-full p-4 bg-gray-50 border-b outline-none text-xs h-24 italic" value={newStudent.notes} onChange={e => setNewStudent({...newStudent, notes: e.target.value})} />
               <Button disabled={saving} className="w-full !py-4 font-bold">{saving ? <Loader2 className="animate-spin mx-auto" /> : "Guardar Registro"}</Button>
             </form>

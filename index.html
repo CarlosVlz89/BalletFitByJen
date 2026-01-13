@@ -100,16 +100,17 @@
                 </div>
 
                 <div class="hidden md:flex items-center space-x-8">
-                    <!-- Agregamos toggleSystem(false) a los enlaces para poder regresar si estamos en el portal -->
                     <a href="#inicio" onclick="toggleSystem(false)" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium relative group">Inicio</a>
                     <a href="#sobre-mi" onclick="toggleSystem(false)" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium relative group">Jen</a>
                     <a href="#metodo" onclick="toggleSystem(false)" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium relative group">Método</a>
                     <a href="#horarios" onclick="toggleSystem(false)" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium relative group">Horarios</a>
-                    
-                    <a href="#contacto" onclick="toggleSystem(false)" class="btn-shine px-6 py-2 bg-brand-dark text-white text-sm uppercase tracking-widest hover:bg-brand-teal transition-colors duration-300 rounded-sm text-center">Reservar</a>
-                    
+    
+                    <a href="#contacto" onclick="toggleSystem(false)" class="btn-shine px-6 py-2 bg-brand-dark text-white text-sm uppercase tracking-widest hover:bg-brand-teal transition-colors duration-300 rounded-sm text-center">
+                        Reservar
+                    </a>
+    
                     <button type="button" onclick="toggleSystem(true)" class="btn-shine px-6 py-2 border border-brand-dark text-brand-dark text-sm uppercase tracking-widest hover:bg-brand-teal hover:text-white hover:border-brand-teal transition-colors duration-300 rounded-sm text-center cursor-pointer">
-                        Portal Alumnas
+                     Portal Alumnas
                     </button>
                 </div>
 
@@ -122,11 +123,18 @@
         </div>
 
         <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg overflow-hidden">
-            <div class="px-4 pt-2 pb-6 space-y-2 text-center">
-                <a href="#inicio" onclick="toggleSystem(false)" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Inicio</a>
-                <a href="#horarios" onclick="toggleSystem(false)" class="mobile-nav-link block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg">Horarios</a>
-                <a href="#contacto" onclick="toggleSystem(false)" class="mobile-nav-link block px-3 py-4 text-brand-teal font-bold text-lg text-center">Reservar Clase</a>
-                <button onclick="toggleSystem(true)" class="w-full mobile-nav-link block px-3 py-4 text-brand-teal font-bold text-lg text-center cursor-pointer border-t border-gray-100 mt-2">Portal Alumnas</button>
+            <div class="px-4 pt-2 pb-6 space-y-2 flex flex-col items-center">
+                <a href="#inicio" class="w-full block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg text-center">Inicio</a>
+                <a href="#horarios" class="w-full block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg text-center">Horarios</a>
+        
+                <div class="w-full border-t border-gray-100 pt-4 space-y-4">
+                    <a href="#contacto" class="btn-shine block w-full py-4 bg-brand-teal text-white text-center font-bold text-sm uppercase tracking-widest rounded-sm">
+                        Reservar Clase
+                    </a>
+                    <button onclick="toggleSystem(true)" class="w-full py-4 border border-brand-teal text-brand-teal font-bold text-sm uppercase tracking-widest rounded-sm">
+                        Portal Alumnas
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
@@ -555,12 +563,20 @@
         const btn = document.getElementById('mobile-menu-btn');
         const menu = document.getElementById('mobile-menu');
 
-        if(btn && menu) {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                menu.classList.toggle('hidden');
-            });
-        }
+                if(btn && menu) {
+                    btn.addEventListener('click', (e) => {
+                     e.stopPropagation();
+                     menu.classList.toggle('hidden');
+         });
+
+        // --- NUEVO: Cerrar menú al hacer clic en cualquier enlace móvil ---
+        const mobileLinks = menu.querySelectorAll('a, button');
+        mobileLinks.forEach(link => {
+         link.addEventListener('click', () => {
+            menu.classList.add('hidden'); // Esto cierra el menú inmediatamente
+        });
+    });
+}
 
         // Navegación Smooth
         const handleNavigation = (e) => {

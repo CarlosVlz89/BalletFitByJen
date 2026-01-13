@@ -877,7 +877,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
     <div className="pb-20">
       <nav className="bg-[#1A3A3E] text-white p-5 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-3">
-          <span className="text-xl font-serif font-black tracking-tight">BFG ADMIN</span>
+          <span className="text-xl font-serif font-black tracking-tight">BF ADMIN</span>
           <span className="bg-[#C5A059] text-[#1A3A3E] text-[9px] font-sans px-2 py-0.5 rounded font-black uppercase">{currentMonth}</span>
         </div>
         <button onClick={onLogout} className="text-[10px] font-sans uppercase font-bold opacity-60 hover:opacity-100 tracking-widest">Cerrar Sesión</button>
@@ -886,57 +886,74 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
-  {/* Cabecera */}
-  <div className="mb-6">
-    <div className="flex justify-between items-center mb-4">
+  <div className="mb-6 space-y-4">
+    <div className="flex justify-between items-center">
       <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
         <ClipboardList size={20} /> Roster
       </h3>
       <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
-        {nextSession?.day || 'Hoy'}
+        {nextSession?.day} {nextSession?.time}
       </span>
     </div>
 
-    {/* Botón Dorado */}
+    {/* BOTÓN DORADO */}
     <button 
-      type="button"
       onClick={() => setShowExtraModal(true)}
-      className="w-full py-3 bg-[#C5A059] text-[#1A3A3E] text-[10px] font-black uppercase tracking-[0.2em] rounded-sm hover:bg-white transition-all flex items-center justify-center gap-2"
+      className="w-full py-3 bg-[#C5A059] text-[#1A3A3E] text-[10px] font-black uppercase tracking-[0.2em] rounded-sm hover:bg-white transition-all flex items-center justify-center gap-2 shadow-lg"
     >
       <UserPlus size={14} /> + Invitada Extra
     </button>
   </div>
   
   <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-    {/* Alumnas */}
-    {roster && roster.length > 0 ? roster.map((alumna) => (
-      <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm flex justify-between items-center">
-        <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
-        <button onClick={() => handleMarkAttendance(alumna.id, nextSession.id)} className="p-2 bg-[#369EAD] text-white rounded-full">
+    {/* 1. Alumnas Regulares */}
+    {roster.map((alumna) => (
+      <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm flex justify-between items-center gap-4">
+        <div className="flex-1">
+          <div className="flex justify-between items-start">
+            <span className="font-serif italic font-bold text-sm">{alumna.name}</span>
+            <span className="text-[9px] font-sans text-[#C5A059] font-black uppercase tracking-tighter">{alumna.id}</span>
+          </div>
+        </div>
+        <button 
+          onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
+          className="p-2 bg-[#369EAD] text-white rounded-full hover:bg-white hover:text-[#369EAD] transition-all"
+        >
           <Check size={18} />
         </button>
       </div>
-    )) : null}
+    ))}
 
-    {/* Invitadas */}
+    {/* 2. Invitadas Extras (Aparecen con fondo dorado suave) */}
     {extraGuests && extraGuests.filter(g => g.sessionId === nextSession?.id).map((guest) => (
-      <div key={guest.id} className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-sm flex justify-between items-center border-l-4 border-l-[#C5A059]">
-        <div className="flex flex-col">
-          <span className="font-serif italic font-bold text-sm text-[#C5A059]">{guest.name}</span>
-          <span className="text-[8px] uppercase opacity-60">{guest.type}</span>
+      <div key={guest.id} className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-sm flex justify-between items-center gap-4 border-l-4 border-l-[#C5A059] animate-in fade-in duration-500">
+        <div className="flex-1">
+          <div className="flex flex-col">
+            <span className="font-serif italic font-bold text-sm text-[#C5A059]">{guest.name}</span>
+            <span className="text-[8px] font-sans uppercase font-black opacity-60">
+              {guest.type === 'Clase Suelta' ? '💰 Clase Suelta' : '✨ Clase de Prueba'}
+            </span>
+          </div>
         </div>
-        <button onClick={async () => {
-          await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras', guest.id));
-          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', nextSession.id), { booked: increment(-1) });
-        }} className="text-red-400 p-1"><Trash2 size={14} /></button>
+        <button 
+          onClick={async () => {
+            if(window.confirm("¿Eliminar registro de invitada?")) {
+              await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras', guest.id));
+              const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', nextSession.id);
+              await updateDoc(sessionRef, { booked: increment(-1) });
+              showNotification("Invitada eliminada");
+            }
+          }}
+          className="p-2 text-red-400 hover:text-red-600 transition-colors"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
     ))}
 
-    {/* Mensaje de Control */}
-    {(!roster || roster.length === 0) && (!extraGuests || extraGuests.filter(g => g.sessionId === nextSession?.id).length === 0) && (
-      <div className="text-center py-10 opacity-30 italic text-sm">
-        MODO INVITADA ACTIVO
-      </div>
+    {/* Mensaje si el salón está vacío */}
+    {roster.length === 0 && (!extraGuests || extraGuests.filter(g => g.sessionId === nextSession?.id).length === 0) && (
+      <div className="text-center py-10 opacity-30 italic text-sm">No hay nadie anotado para la siguiente clase</div>
     )}
   </div>
 </Card>
@@ -1267,37 +1284,45 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
 
       {/* Modal para Clase Suelta o Prueba */}
       {showExtraModal && (
-        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[500] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#C5A059]">
-            <h3 className="text-xl font-serif italic mb-6 text-center text-[#1A3A3E]">Invitada Extra</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-[9px] font-black text-gray-400 uppercase">Nombre de la persona</label>
-                <input 
-                  type="text" 
-                  className="w-full p-3 bg-gray-50 border-b border-gray-200 outline-none font-bold uppercase text-sm"
-                  value={extraGuest.name}
-                  onChange={e => setExtraGuest({...extraGuest, name: e.target.value})}
-                  placeholder="Ej. MARIA LOPEZ"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-gray-400 uppercase">Tipo de Clase</label>
-                <select 
-                  className="w-full p-3 bg-gray-50 border-b border-gray-200 outline-none font-bold text-sm"
-                  value={extraGuest.type}
-                  onChange={e => setExtraGuest({...extraGuest, type: e.target.value})}
-                >
-                  <option value="Clase Suelta">Clase Suelta ($)</option>
-                  <option value="Clase de Prueba">Clase de Prueba (Muestra)</option>
-                </select>
-              </div>
-              <Button onClick={() => handleAddExtraGuest(nextSession.id)} className="w-full !py-4 font-bold">Agregar a la lista</Button>
-              <button onClick={() => setShowExtraModal(false)} className="w-full text-[10px] uppercase font-bold text-gray-300 hover:text-red-400 mt-2">Cancelar</button>
-            </div>
-          </div>
+  <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[500] flex items-center justify-center p-4">
+    <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#C5A059]">
+      <h3 className="text-xl font-serif italic mb-6 text-center text-[#1A3A3E]">Invitada Extra</h3>
+      <div className="space-y-4">
+        <div>
+          <label className="text-[9px] font-black text-gray-400 uppercase">Nombre Completo</label>
+          <input 
+            type="text" 
+            className="w-full p-3 bg-gray-50 border-b border-gray-200 outline-none font-bold uppercase text-sm"
+            value={extraGuest.name}
+            onChange={e => setExtraGuest({...extraGuest, name: e.target.value})}
+            placeholder="MARIA PÉREZ"
+            autoFocus
+          />
         </div>
-      )}
+        <div>
+          <label className="text-[9px] font-black text-gray-400 uppercase">Tipo de Ingreso</label>
+          <select 
+            className="w-full p-3 bg-gray-50 border-b border-gray-200 outline-none font-bold text-sm"
+            value={extraGuest.type}
+            onChange={e => setExtraGuest({...extraGuest, type: e.target.value})}
+          >
+            <option value="Clase Suelta">Clase Suelta ($)</option>
+            <option value="Clase de Prueba">Clase de Prueba (Gratis)</option>
+          </select>
+        </div>
+        <Button onClick={() => handleAddExtraGuest(nextSession.id)} className="w-full !py-4 font-bold">
+          Registrar Asistencia
+        </Button>
+        <button 
+          onClick={() => setShowExtraModal(false)} 
+          className="w-full text-[10px] uppercase font-bold text-gray-300 hover:text-red-400 mt-2"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

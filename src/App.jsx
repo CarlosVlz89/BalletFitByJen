@@ -535,7 +535,9 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
     </div>
   );
 };
-
+// ----------------------------------------
+//---------- Panel de Jenny----------------
+//-----------------------------------------
 const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId, onLogout, showNotification }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showStaffForm, setShowStaffForm] = useState(false);
@@ -887,7 +889,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
           <div className="lg:col-span-3 space-y-8">
             <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
               <div className="p-6 border-b border-gray-50 bg-[#1A3A3E]/5 flex justify-between items-center">
-                <h3 className="font-serif font-bold italic text-[#1A3A3E] flex items-center gap-2"><ShieldCheck size={20} className="text-[#369EAD]"/> Control Staff</h3>
+                <h3 className="font-serif font-bold italic text-[#1A3A3E] flex items-center gap-2"><ShieldCheck size={20} className="text-[#369EAD]"/> Control Maestras</h3>
                 <Button onClick={() => setShowStaffForm(true)} className="!px-4 !py-2 !text-[9px]">Nuevo Staff</Button>
               </div>
               <div className="overflow-x-auto">
@@ -904,7 +906,12 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                             <div><div className="font-bold font-serif italic">{t.name}</div><div className="text-[9px] uppercase text-gray-400">{t.id} • {t.role}</div></div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-center font-bold text-[#C5A059]">{t.password}</td>
+                        <td className="px-6 py-4 text-center font-bold text-[#C5A059]">
+                          <div className="flex items-center justify-center gap-2">
+                              <Lock size={12} className="opacity-50" />
+                              {t.password}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-right pr-8 space-x-1">
                           <button onClick={() => setShowStaffPassModal(t.id)} className="p-2 text-gray-300 hover:text-[#C5A059]"><Key size={16}/></button>
                           <button onClick={() => handleToggleStatus('maestros', t.id, t.status)} className={`p-2 rounded-full ${t.status === 'inactive' ? 'text-green-500' : 'text-red-400'}`}>
@@ -927,7 +934,14 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead className="bg-gray-50 text-[9px] uppercase text-gray-400 font-black">
-                    <tr><th className="px-6 py-5">Nombre</th><th className="px-6 py-5 text-center">Créditos</th><th className="px-6 py-5 text-center">Asistencias</th><th className="px-6 py-5 text-center">Pago</th><th className="px-6 py-5 text-right pr-10">Acciones</th></tr>
+                    <tr>
+                      <th className="px-6 py-5">Nombre</th>
+                      <th className="px-6 py-5 text-center">Clave</th> {/* <-- Agrega esta línea */}
+                      <th className="px-6 py-5 text-center">Créditos</th>
+                      <th className="px-6 py-5 text-center">Asistencias</th>
+                      <th className="px-6 py-5 text-center">Pago</th>
+                      <th className="px-6 py-5 text-right pr-10">Acciones</th>
+                    </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {students.map((s) => {
@@ -941,6 +955,9 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                               {s.notes && <div className="text-[10px] text-red-400 italic flex items-center gap-1"><Stethoscope size={10}/> {s.notes}</div>}
                             </div>
                           </td>
+                            <td className="px-6 py-5 text-center font-mono text-xs font-bold text-[#369EAD]">
+                                {s.password}
+                            </td>
                           <td className="px-6 py-5 text-center font-bold">
                             <span className={s.credits === 0 ? 'text-red-400' : 'text-[#369EAD]'}>{s.credits}</span> / {s.maxCredits}
                           </td>

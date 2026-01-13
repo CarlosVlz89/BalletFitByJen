@@ -584,12 +584,16 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
   const [newPassValue, setNewPassValue] = useState("");
   const [editingDateId, setEditingDateId] = useState(null);
   const [tempDate, setTempDate] = useState("");
+  const [tempNotes, setTempNotes] = useState(""); // Agrega esta línea debajo de tempDate
+  const [editingId, setEditingId] = useState(null); // Para saber qué alumna estamos editando
+  const [tempName, setTempName] = useState("");     // Para guardar el nombre mientras se escribe
   const [newStudent, setNewStudent] = useState({ id: '', name: '', password: '', plan: '2 clases x sem', notes: '',registrationDate: new Date().toISOString().split('T')[0] });
   const [newStaff, setNewStaff] = useState({ id: '', name: '', password: '', role: 'teacher' });
   const [saving, setSaving] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(null); 
   const [paymentAmount, setPaymentAmount] = useState(0);
   const currentMonth = getCurrentMonthName();
+  
 
   const activeStudents = students.filter(s => s.status !== 'inactive');
   const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'metadata');
@@ -751,14 +755,18 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
     setSaving(false);
   };
 
-  const handleUpdateRegistrationDate = async (studentId, newDate) => {
+  const handleUpdateStudentData = async (studentId) => {
     try {
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', studentId);
-      await updateDoc(docRef, { registrationDate: newDate });
-      showNotification('Fecha actualizada correctamente');
-      setEditingDateId(null); // Cerramos el modo edición
+      await updateDoc(docRef, { 
+        name: tempName.trim().toUpperCase(),
+        registrationDate: tempDate,
+        notes: tempNotes.trim() // <--- Agrega esta línea
+      });
+      showNotification('Datos actualizados');
+      setEditingId(null);
     } catch (err) {
-      showNotification('Error al actualizar fecha', 'error');
+      showNotification('Error al actualizar', 'error');
     }
   };
 
@@ -886,7 +894,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
               <Card className="bg-[#1A3A3E] border-none text-white text-center flex flex-col items-center justify-center relative overflow-hidden group">
                 <PartyPopper className="text-[#C5A059] mx-auto mb-4 animate-bounce" size={40} />
                 <h3 className="text-2xl font-serif italic mb-2">¡Sigue creciendo!</h3>
-                <p className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 px-4">Cada alumna nueva es un paso más</p>
+                <p className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 px-4">Cada alumna nueva es un paso más hacia tu sueño</p>
               </Card>
 
               <Card className="flex items-center gap-6 border-[#369EAD] group">
@@ -973,6 +981,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
               </div>
             </div>
 
+           
             <div className="bg-white rounded-sm shadow-xl border border-gray-100 overflow-hidden font-sans">
               <div className="p-6 border-b border-gray-50 bg-gray-50/30 flex justify-between items-center">
                 <h3 className="font-serif font-bold italic text-[#1A3A3E]">Control Alumnas</h3>
@@ -997,11 +1006,69 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                         <tr key={s.id} className={`hover:bg-gray-50 transition-all text-sm ${isInactive ? 'opacity-40 grayscale-[0.5]' : ''}`}>
                           <td className="px-6 py-5">
                             <div className="flex flex-col">
-                              <span className="text-[10px] font-black text-[#369EAD] bg-[#EBF5F6] px-2 py-0.5 rounded-sm w-fit mb-1">{s.id}</span>
-                              <div className="font-bold font-serif italic">{s.name}</div>
-                              {s.notes && <div className="text-[10px] text-red-400 italic flex items-center gap-1"><Stethoscope size={10}/> {s.notes}</div>}
+                              {/* El ID siempre se queda igual */}
+                            <span className="text-[10px] font-black text-[#369EAD] bg-[#EBF5F6] px-2 py-0.5 rounded-sm w-fit mb-1">{s.id}</span>
+    
+                            {editingId === s.id ? (
+                            /* --- MODO EDICIÓN: Lo que Jenny ve cuando le da clic al lápiz --- */
+                            <div className="space-y-2 bg-gray-50 p-2 rounded-sm border border-[#369EAD]/30 animate-in fade-in duration-300">
+                            <div>
+                              <label className="text-[8px] font-black text-gray-400 uppercase">Nombre</label>
+                            <input 
+                              type="text" 
+                              className="w-full font-bold font-serif italic border-b border-[#369EAD] outline-none bg-transparent text-[#1A3A3E] uppercase"
+                              value={tempName}
+                              onChange={(e) => setTempName(e.target.value)}
+                            />
                             </div>
-                          </td>
+                            <div>
+                            <label className="text-[8px] font-black text-gray-400 uppercase">Fecha Inscripción</label>
+                            <input 
+                              type="date" 
+                              className="w-full text-xs font-sans border-b border-gray-300 outline-none bg-transparent text-gray-600"
+                              value={tempDate}
+                              onChange={(e) => setTempDate(e.target.value)}
+                              />
+                            </div>
+                        <div>
+                        <label className="text-[8px] font-black text-gray-400 uppercase">Notas Médicas</label>
+                        <textarea 
+                          className="w-full text-[10px] border-b border-gray-300 outline-none bg-transparent text-red-400 italic"
+                          value={tempNotes}
+                          onChange={(e) => setTempNotes(e.target.value)}
+                        />
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                        <button 
+                          onClick={() => handleUpdateStudentData(s.id)} 
+                          className="text-[8px] bg-[#369EAD] text-white px-3 py-1 font-black uppercase tracking-widest"
+                        >
+                        Guardar
+                        </button>
+                        <button 
+                        onClick={() => setEditingId(null)} 
+                        className="text-[8px] bg-gray-200 text-gray-500 px-3 py-1 font-black uppercase tracking-widest"
+                        >
+                        Cancelar
+                        </button>
+                        </div>
+                        </div>
+                        ) : (
+                        /* --- MODO VISTA: Lo que se ve normalmente --- */
+                      <>
+                      <div className="font-bold font-serif italic text-[#1A3A3E] text-base">{s.name}</div>
+                      <div className="text-[9px] text-gray-400 font-sans uppercase tracking-tighter flex items-center gap-1 mt-1">
+                      <Calendar size={10} /> Inscrita: {s.registrationDate || 'Sin fecha'}
+                      </div>
+                      {s.notes && (
+                      <div className="text-[10px] text-red-400 italic flex items-center gap-1 mt-1 bg-red-50/50 w-fit px-1 rounded-sm">
+                      <Stethoscope size={10}/> {s.notes}
+                </div>
+              )}
+            </>
+            )}
+          </div>
+          </td>
                             <td className="px-6 py-5 text-center font-mono text-xs font-bold text-[#369EAD]">
                                 {s.password}
                             </td>
@@ -1018,6 +1085,12 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                             </button>
                           </td>
                           <td className="px-6 py-5 text-right pr-8 space-x-1">
+                            <button onClick={() => { setEditingId(s.id); setTempName(s.name); setTempDate(s.registrationDate || ""); setTempNotes(s.notes || ""); // <--- Agrega esta línea
+                            }} 
+                           className="p-2 text-gray-300 hover:text-[#369EAD]"
+                           >
+                          <UserPlus size={16} />
+                          </button>
                             <button onClick={() => setShowPassModal(s.id)} className="p-2 text-gray-300 hover:text-[#C5A059]"><Key size={16} /></button>
                             <button onClick={() => handleToggleStatus('alumnas', s.id, s.status)} className={`p-2 rounded-full ${isInactive ? 'text-green-500' : 'text-gray-300'}`}>
                               {isInactive ? <UserCheck size={16}/> : <UserX size={16}/>}

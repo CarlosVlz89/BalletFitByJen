@@ -438,7 +438,11 @@ const LoginView = ({ onLogin, error }) => {
     </div>
   );
 };
+
+//-----------------------------
 // --- Panel de estudiantes ---
+//-----------------------------
+
 const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCancel, onLogout, onUpdatePassword }) => {
   const myHistory = user.history || [];
   const mySessions = sessions.filter(s => myHistory.includes(s.id));
@@ -460,7 +464,6 @@ const StudentDashboard = ({ user, quote, sessions, sessionsData, onBook, onCance
               <span>Salir</span><LogOut size={16} />
             </button>
           </div>
-          <button onClick={onLogout} className="text-gray-400 hover:text-[#369EAD] text-[10px] font-sans uppercase font-bold flex items-center gap-2 tracking-widest"><span>Salir</span><LogOut size={16} /></button>
           {showPassModal && (
             <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
               <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD] text-center">

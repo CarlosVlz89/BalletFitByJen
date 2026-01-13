@@ -1160,7 +1160,7 @@ const TeacherDashboard = ({ user, students, sessionsData, db, appId, onLogout, s
         {showPassModal && (
           <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#369EAD] text-center">
-              <h3 className="text-xl font-serif italic mb-2 text-[#1A3A3E]">Cambiar mi Clave</h3>
+              <h3 className="text-xl font-serif italic mb-2">Cambiar mi clave</h3>
               <input type="text" className="w-full p-4 bg-gray-50 border-b outline-none text-center font-bold mb-6 text-[#1A3A3E]" value={newPass} onChange={e => setNewPass(e.target.value)} />               
               <Button onClick={() => { onUpdatePassword('maestros', user.id, newPass); setShowPassModal(false); setNewPass(""); }} className="w-full">Actualizar</Button>
               <button onClick={() => setShowPassModal(false)} className="mt-4 text-[10px] uppercase font-bold text-gray-400">Cerrar</button>

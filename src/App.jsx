@@ -886,9 +886,9 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
       <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
            <Card className="lg:col-span-1 bg-[#1A3A3E] !border-[#C5A059] text-white">
-  {/* Cabecera del Roster separada para que el botón no se pierda */}
-  <div className="mb-6">
-    <div className="flex justify-between items-center mb-4">
+  {/* 1. Cabecera y Botón */}
+  <div className="mb-6 space-y-4">
+    <div className="flex justify-between items-center">
       <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
         <ClipboardList size={20} /> Roster
       </h3>
@@ -897,7 +897,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
       </span>
     </div>
 
-    {/* BOTÓN DORADO PRINCIPAL */}
+    {/* BOTÓN DORADO PRINCIPAL - Fuera del div del título para que no se pierda */}
     <button 
       onClick={() => setShowExtraModal(true)}
       className="w-full py-3 bg-[#C5A059] text-[#1A3A3E] text-[10px] font-black uppercase tracking-[0.2em] rounded-sm hover:bg-white transition-all flex items-center justify-center gap-2 shadow-lg"
@@ -906,8 +906,9 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
     </button>
   </div>
   
+  {/* 2. Listado Scrolleable */}
   <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-    {/* 1. Alumnas Regulares */}
+    {/* Lista de Alumnas Regulares */}
     {roster.length > 0 ? roster.map((alumna) => (
       <div key={alumna.id} className="p-4 bg-white/5 border border-white/10 rounded-sm flex justify-between items-center gap-4">
         <div className="flex-1">
@@ -918,24 +919,22 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
         </div>
         <button 
           onClick={() => handleMarkAttendance(alumna.id, nextSession.id)}
-          className="p-2 bg-[#369EAD] text-white rounded-full"
+          className="p-2 bg-[#369EAD] text-white rounded-full hover:bg-white hover:text-[#369EAD] transition-colors"
         >
           <Check size={18} />
         </button>
       </div>
     )) : null}
 
-    {/* 2. Invitadas (Aparecen automáticamente en fondo dorado) */}
-    {extraGuests.filter(g => g.sessionId === nextSession?.id).map((guest) => (
+    {/* Lista de Invitadas Extras */}
+    {extraGuests && extraGuests.filter(g => g.sessionId === nextSession?.id).map((guest) => (
       <div key={guest.id} className="p-4 bg-[#C5A059]/10 border border-[#C5A059]/30 rounded-sm flex justify-between items-center gap-4 border-l-4 border-l-[#C5A059]">
         <div className="flex-1">
-          <div className="flex justify-between items-start">
-            <div className="flex flex-col">
-              <span className="font-serif italic font-bold text-sm text-[#C5A059]">{guest.name}</span>
-              <span className="text-[8px] font-sans uppercase font-black opacity-60">
-                {guest.type === 'Clase Suelta' ? '$ Suelta' : 'Prueba'}
-              </span>
-            </div>
+          <div className="flex flex-col">
+            <span className="font-serif italic font-bold text-sm text-[#C5A059]">{guest.name}</span>
+            <span className="text-[8px] font-sans uppercase font-black opacity-60">
+              {guest.type === 'Clase Suelta' ? '$ Suelta' : 'Prueba'}
+            </span>
           </div>
         </div>
         <button 
@@ -945,14 +944,15 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
               await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', nextSession.id), { booked: increment(-1) });
             }
           }}
-          className="text-red-400 p-1"
+          className="text-red-400 p-2 hover:bg-red-500/20 rounded-full transition-all"
         >
-          <Trash2 size={14} />
+          <Trash2 size={16} />
         </button>
       </div>
     ))}
 
-    {roster.length === 0 && extraGuests.filter(g => g.sessionId === nextSession?.id).length === 0 && (
+    {/* Mensaje de lista vacía */}
+    {roster.length === 0 && (!extraGuests || extraGuests.filter(g => g.sessionId === nextSession?.id).length === 0) && (
       <div className="text-center py-10 opacity-30 italic text-sm">Sin asistentes hoy</div>
     )}
   </div>

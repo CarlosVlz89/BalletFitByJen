@@ -906,12 +906,7 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                             <div><div className="font-bold font-serif italic">{t.name}</div><div className="text-[9px] uppercase text-gray-400">{t.id} • {t.role}</div></div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-center font-bold text-[#C5A059]">
-                          <div className="flex items-center justify-center gap-2">
-                              <Lock size={12} className="opacity-50" />
-                              {t.password}
-                          </div>
-                        </td>
+                        <td className="px-6 py-4 text-center font-bold text-[#C5A059]">{t.password}</td>
                         <td className="px-6 py-4 text-right pr-8 space-x-1">
                           <button onClick={() => setShowStaffPassModal(t.id)} className="p-2 text-gray-300 hover:text-[#C5A059]"><Key size={16}/></button>
                           <button onClick={() => handleToggleStatus('maestros', t.id, t.status)} className={`p-2 rounded-full ${t.status === 'inactive' ? 'text-green-500' : 'text-red-400'}`}>

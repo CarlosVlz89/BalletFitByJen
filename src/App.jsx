@@ -593,8 +593,8 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
   const [showPaymentModal, setShowPaymentModal] = useState(null); 
   const [paymentAmount, setPaymentAmount] = useState(0);
   const currentMonth = getCurrentMonthName();
-  
-
+  const [showExtraModal, setShowExtraModal] = useState(false);
+  const [extraGuest, setExtraGuest] = useState({ name: '', type: 'Clase Suelta' });
   const activeStudents = students.filter(s => s.status !== 'inactive');
   const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'metadata');
 
@@ -692,6 +692,31 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
       await updateDoc(sessionRef, { booked: increment(-1) });
       showNotification('Asistencia confirmada');
     } catch (err) { console.error(err); }
+  };
+
+  const handleAddExtraGuest = async (sessionId) => {
+    if (!extraGuest.name.trim()) return showNotification("Escribe un nombre", "error");
+    
+    try {
+      // 1. Guardamos el registro de la invitada
+      const extraRef = collection(db, 'artifacts', appId, 'public', 'data', 'asistencias_extras');
+      await setDoc(doc(extraRef), {
+        sessionId,
+        name: extraGuest.name.trim().toUpperCase(),
+        type: extraGuest.type,
+        date: new Date().toISOString()
+      });
+
+      // 2. Sumamos un lugar al cupo de la sesión actual
+      const sessionRef = doc(db, 'artifacts', appId, 'public', 'data', 'sesiones', sessionId);
+      await setDoc(sessionRef, { booked: increment(1) }, { merge: true });
+
+      showNotification('Invitada agregada');
+      setShowExtraModal(false);
+      setExtraGuest({ name: '', type: 'Clase Suelta' });
+    } catch (err) {
+      showNotification('Error al agregar', 'error');
+    }
   };
 
   const handleToggleStatus = async (collectionName, id, currentStatus) => {
@@ -848,6 +873,12 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
                 <h3 className="text-xl font-serif italic text-[#C5A059] flex items-center gap-2">
                   <ClipboardList size={20} /> Roster: Próxima Clase
                 </h3>
+                <button 
+                  onClick={() => setShowExtraModal(true)}
+                  className="mt-2 w-full py-2 bg-[#C5A059]/20 border border-[#C5A059] text-[#C5A059] text-[9px] font-black uppercase tracking-widest rounded-sm hover:bg-[#C5A059] hover:text-[#1A3A3E] transition-all flex items-center justify-center gap-2"
+                >
+                  <UserPlus size={14} /> + Añadir Extra (Suelta/Prueba)
+                </button>
                 <span className="bg-white/10 px-3 py-1 rounded-sm text-[10px] font-sans font-bold uppercase tracking-widest">
                   {nextSession.day} {nextSession.time}
                 </span>
@@ -1200,6 +1231,40 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
               </div>
               <Button onClick={handlePayment} className="w-full !py-4 font-bold">Confirmar</Button>
               <button onClick={() => setShowPaymentModal(null)} className="text-[10px] uppercase font-bold text-gray-300 hover:text-red-400">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Clase Suelta o Prueba */}
+      {showExtraModal && (
+        <div className="fixed inset-0 bg-[#1A3A3E]/80 backdrop-blur-md z-[500] flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xs p-8 rounded-sm shadow-2xl border-t-8 border-[#C5A059]">
+            <h3 className="text-xl font-serif italic mb-6 text-center text-[#1A3A3E]">Invitada Extra</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[9px] font-black text-gray-400 uppercase">Nombre de la persona</label>
+                <input 
+                  type="text" 
+                  className="w-full p-3 bg-gray-50 border-b border-gray-200 outline-none font-bold uppercase text-sm"
+                  value={extraGuest.name}
+                  onChange={e => setExtraGuest({...extraGuest, name: e.target.value})}
+                  placeholder="Ej. MARIA LOPEZ"
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-gray-400 uppercase">Tipo de Clase</label>
+                <select 
+                  className="w-full p-3 bg-gray-50 border-b border-gray-200 outline-none font-bold text-sm"
+                  value={extraGuest.type}
+                  onChange={e => setExtraGuest({...extraGuest, type: e.target.value})}
+                >
+                  <option value="Clase Suelta">Clase Suelta ($)</option>
+                  <option value="Clase de Prueba">Clase de Prueba (Muestra)</option>
+                </select>
+              </div>
+              <Button onClick={() => handleAddExtraGuest(nextSession.id)} className="w-full !py-4 font-bold">Agregar a la lista</Button>
+              <button onClick={() => setShowExtraModal(false)} className="w-full text-[10px] uppercase font-bold text-gray-300 hover:text-red-400 mt-2">Cancelar</button>
             </div>
           </div>
         </div>

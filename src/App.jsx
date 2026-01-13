@@ -881,13 +881,6 @@ const AdminDashboard = ({ students, teachers, sessionsData, settings, db, appId,
     } catch (err) { console.error(err); }
   };
 
-  const resetCreditsManual = async (id, max) => {
-    if (!auth.currentUser) return;
-    if (window.confirm("¿Reiniciar semana?")) {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'alumnas', id), { credits: max, history: [] });
-    }
-  };
-
   const deleteStudent = async (id, name) => {
     if (!auth.currentUser) return;
     if (window.confirm(`¿Borrar a ${name}?`)) {

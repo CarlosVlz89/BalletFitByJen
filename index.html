@@ -4,16 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ballet Fit by Jen | Estudio en Guadalajara</title>
+
+    <meta name="description" content="Entrenamiento funcional que fusiona la técnica del ballet con el fitness para tonificar y mejorar postura. No necesitas saber bailar. Clases en Colinas de la Normal: Lun/Mié/Vie 7PM y Sáb 9AM.">
+    <meta name="keywords" content="Ballet Fit Guadalajara, Barre, Fitness Femenino, Ejercicio Postura, Colinas de la Normal, Gimnasio Zona Centro GDL, Tonificación, Entrenamiento Funcional, Ballet Fitness">
+    <meta name="author" content="Ballet Fit by Jen">
+    <meta name="robots" content="index, follow">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://balletfitbyjen.com/"> 
+    <meta property="og:title" content="Ballet Fit by Jen | Tonifica y mejora tu postura">
+    <meta property="og:description" content="¿Buscas ejercicio diferente? Fusionamos la fuerza del fitness con la elegancia del ballet. ¡Últimos lugares disponibles en Colinas de la Normal!">
+    <meta property="og:image" content="./hero.jpeg"> 
+    <meta name="geo.region" content="MX-JAL" />
+    <meta name="geo.placename" content="Guadalajara" />
+    <meta name="geo.position" content="20.6946;-103.3541" /> 
+    <meta name="ICBM" content="20.6946, -103.3541" />
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet">
     
-    <!-- Icons & Libs -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://unpkg.com/scrollreveal"></script>
 
@@ -40,13 +52,18 @@
     
     <style>
         html { scroll-padding-top: 100px; }
-        body { font-family: 'Playfair Display', serif; cursor: default; }
+        /* Fondo con degradado global */
+        body { 
+            font-family: 'Playfair Display', serif; 
+            cursor: default;
+            background: linear-gradient(135deg, #F8FAFC 0%, #EBF5F6 50%, #F0FDFA 100%);
+            min-height: 100vh;
+        }
 
         /* --- Estilos Visuales --- */
         .hero-container { position: relative; height: 90vh; overflow: hidden; }
         .hero-bg-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 120%; z-index: -1; will-change: transform; }
         
-        /* TU IMAGEN DE FONDO */
         .hero-bg {
             background-image: linear-gradient(rgba(26, 58, 62, 0.5), rgba(26, 58, 62, 0.4)), url('./hero.jpeg');
             background-size: cover; 
@@ -59,12 +76,21 @@
         .fade-in-up { animation: fadeInUp 1s ease-out forwards; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* Estilo Liquid Glass para tarjetas */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 1rem; /* rounded-2xl */
+        }
+
         .btn-shine { position: relative; overflow: hidden; }
-        .btn-shine::after { content: ""; background: rgba(255, 255, 255, 0.2); height: 100%; left: -100%; position: absolute; top: 0; width: 100%; transition: all 0.6s ease; }
+        .btn-shine::after { content: ""; background: rgba(255, 255, 255, 0.4); height: 100%; left: -100%; position: absolute; top: 0; width: 100%; transition: all 0.6s ease; }
         .btn-shine:hover::after { left: 100%; }
 
         .card-hover { transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); }
-        .card-hover:hover { transform: translateY(-8px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08); border-color: #369EAD; }
+        .card-hover:hover { transform: translateY(-8px); box-shadow: 0 20px 30px -5px rgba(54, 158, 173, 0.15); border-color: #369EAD; background: rgba(255, 255, 255, 0.85); }
         .card-hover:hover i { transform: scale(1.1); color: #369EAD; }
 
         .modal-overlay { display: none; backdrop-filter: blur(8px); transition: opacity 0.3s ease; opacity: 0; }
@@ -81,18 +107,24 @@
         /* CLASES PARA EL SWITCH (Ocultar/Mostrar) */
         #root { display: none; } 
         #landing-wrapper { display: block; }
+
+        /* Blobs de fondo (Efecto Liquido) */
+        .blob { position: fixed; border-radius: 50%; filter: blur(80px); z-index: -1; opacity: 0.6; pointer-events: none; }
+        .blob-1 { top: -10%; left: -10%; width: 500px; height: 500px; background: rgba(54, 158, 173, 0.15); }
+        .blob-2 { bottom: -10%; right: -10%; width: 600px; height: 600px; background: rgba(197, 160, 89, 0.1); }
     </style>
-  <script type="module" crossorigin src="./assets/index-Bv9LJoOP.js"></script>
+  <script type="module" crossorigin src="./assets/index-CVYP-xrs.js"></script>
   <link rel="stylesheet" crossorigin href="./assets/index-DP8n7qAi.css">
 <link rel="manifest" href="./manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="./registerSW.js"></script></head>
-<body class="text-brand-dark antialiased bg-white overflow-x-hidden">
+<body class="text-brand-dark antialiased overflow-x-hidden relative">
 
-    <!-- NAVBAR FUERA DEL WRAPPER PARA QUE SIEMPRE SEA VISIBLE -->
-    <nav class="sticky top-0 w-full z-50 transition-all duration-500 bg-white/95 backdrop-blur-sm shadow-sm" id="navbar">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <nav class="sticky top-0 w-full z-50 transition-all duration-500 bg-white/70 backdrop-blur-md border-b border-white/40 shadow-sm" id="navbar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-20">
                 <div class="flex-shrink-0 flex items-center">
-                    <!-- Al dar clic en el logo, nos aseguramos de mostrar la landing page -->
                     <a href="#inicio" onclick="toggleSystem(false)" class="group flex items-center gap-3">
                         <div class="flex flex-col leading-tight transition-transform duration-300 group-hover:scale-105">
                             <span class="text-2xl font-semibold tracking-tight text-brand-teal">Ballet Fit</span>
@@ -107,11 +139,11 @@
                     <a href="#metodo" onclick="toggleSystem(false)" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium relative group">Método</a>
                     <a href="#horarios" onclick="toggleSystem(false)" class="nav-link text-gray-600 hover:text-brand-teal transition-colors text-sm uppercase tracking-widest font-medium relative group">Horarios</a>
     
-                    <a href="#contacto" onclick="toggleSystem(false)" class="btn-shine px-6 py-2 bg-brand-dark text-white text-sm uppercase tracking-widest hover:bg-brand-teal transition-colors duration-300 rounded-sm text-center">
+                    <a href="#contacto" onclick="toggleSystem(false)" class="btn-shine px-6 py-2 bg-brand-dark text-white text-sm uppercase tracking-widest hover:bg-brand-teal transition-colors duration-300 rounded-lg text-center shadow-lg border border-white/20">
                         Reservar
                     </a>
     
-                    <button type="button" onclick="toggleSystem(true)" class="btn-shine px-6 py-2 border border-brand-dark text-brand-dark text-sm uppercase tracking-widest hover:bg-brand-teal hover:text-white hover:border-brand-teal transition-colors duration-300 rounded-sm text-center cursor-pointer">
+                    <button type="button" onclick="toggleSystem(true)" class="btn-shine px-6 py-2 bg-white/50 border border-brand-teal text-brand-teal text-sm uppercase tracking-widest hover:bg-brand-teal hover:text-white transition-colors duration-300 rounded-lg text-center cursor-pointer backdrop-blur-sm">
                      Portal Alumnas
                     </button>
                 </div>
@@ -124,16 +156,18 @@
             </div>
         </div>
 
-        <div id="mobile-menu" class="hidden md:hidden bg-white border-t border-gray-100 absolute w-full shadow-lg overflow-hidden">
+        <div id="mobile-menu" class="hidden md:hidden bg-white/90 backdrop-blur-xl border-t border-gray-100 absolute w-full shadow-lg overflow-hidden">
             <div class="px-4 pt-2 pb-6 space-y-2 flex flex-col items-center">
                 <a href="#inicio" class="w-full block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg text-center">Inicio</a>
+                <a href="#sobre-mi" class="w-full block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg text-center">Jen</a>
+                <a href="#metodo" class="w-full block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg text-center">Método</a>
                 <a href="#horarios" class="w-full block px-3 py-4 text-gray-600 hover:bg-brand-tealLight hover:text-brand-teal rounded-md text-lg text-center">Horarios</a>
         
                 <div class="w-full border-t border-gray-100 pt-4 space-y-4">
-                    <a href="#contacto" class="btn-shine block w-full py-4 bg-brand-teal text-white text-center font-bold text-sm uppercase tracking-widest rounded-sm">
+                    <a href="#contacto" class="btn-shine block w-full py-4 bg-brand-teal text-white text-center font-bold text-sm uppercase tracking-widest rounded-lg">
                         Reservar Clase
                     </a>
-                    <button onclick="toggleSystem(true)" class="w-full py-4 border border-brand-teal text-brand-teal font-bold text-sm uppercase tracking-widest rounded-sm">
+                    <button onclick="toggleSystem(true)" class="w-full py-4 border border-brand-teal text-brand-teal font-bold text-sm uppercase tracking-widest rounded-lg bg-white/50">
                         Portal Alumnas
                     </button>
                 </div>
@@ -141,28 +175,28 @@
         </div>
     </nav>
 
-    <!-- 1. LANDING PAGE (HTML ESTÁTICO) -->
     <div id="landing-wrapper">
         
-        <!-- Hero Section -->
         <header id="inicio" class="hero-container flex items-center justify-center text-white">
             <div class="hero-bg-wrapper" id="hero-parallax">
                 <div class="hero-bg"></div>
             </div>
             
             <div class="text-center px-4 max-w-4xl mx-auto fade-in-up relative z-10">
-                <p class="text-sm md:text-base uppercase tracking-[0.3em] mb-4 text-brand-tealLight opacity-90">Elegancia • Fuerza • Equilibrio</p>
-                <h1 class="text-5xl md:text-7xl mb-6 leading-tight">Donde el Ballet encuentra<br>la fuerza del Fitness</h1>
-                <p class="text-lg md:text-xl font-light mb-10 text-gray-200 max-w-2xl mx-auto">
-                    Una fusión técnica para promover la actividad física, la estética y la fuerza a través del movimiento.
-                </p>
-                <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                    <a href="#metodo" class="btn-shine px-8 py-3 bg-brand-teal text-white uppercase tracking-widest text-sm hover:bg-white hover:text-brand-dark transition-all duration-500 shadow-xl cursor-pointer">
-                        Conoce el Método
-                    </a>
-                    <a href="#contacto" class="btn-shine px-8 py-3 border border-white text-white uppercase tracking-widest text-sm hover:bg-white hover:text-brand-dark transition-all duration-500 cursor-pointer">
-                        Contáctanos
-                    </a>
+                <div class="glass-card p-8 md:p-12 border-none bg-brand-dark/30 backdrop-blur-sm">
+                    <p class="text-sm md:text-base uppercase tracking-[0.3em] mb-4 text-brand-tealLight opacity-90">Elegancia • Fuerza • Equilibrio</p>
+                    <h1 class="text-5xl md:text-7xl mb-6 leading-tight font-medium">Donde el Ballet encuentra<br>la fuerza del Fitness</h1>
+                    <p class="text-lg md:text-xl font-light mb-10 text-gray-200 max-w-2xl mx-auto">
+                        Una fusión técnica para promover la actividad física, la estética y la fuerza a través del movimiento.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <a href="#metodo" class="btn-shine px-8 py-3 bg-brand-teal/90 text-white uppercase tracking-widest text-sm hover:bg-white hover:text-brand-dark transition-all duration-500 shadow-xl cursor-pointer rounded-lg border border-white/20 backdrop-blur-md">
+                            Conoce el Método
+                        </a>
+                        <a href="#contacto" class="btn-shine px-8 py-3 border border-white/50 bg-white/10 backdrop-blur-md text-white uppercase tracking-widest text-sm hover:bg-white hover:text-brand-dark transition-all duration-500 cursor-pointer rounded-lg">
+                            Contáctanos
+                        </a>
+                    </div>
                 </div>
             </div>
             <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-50">
@@ -170,68 +204,63 @@
             </div>
         </header>
 
-        <!-- About Section -->
-        <section id="sobre-mi" class="py-20 md:py-32 bg-white overflow-hidden">
+        <section id="sobre-mi" class="py-20 md:py-32 relative">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex flex-col md:flex-row items-center gap-12 lg:gap-20">
                     <div class="w-full md:w-1/2 relative group section-reveal-left">
-                        <div class="absolute -top-4 -left-4 w-full h-full border-2 border-brand-tealLight z-0 transition-transform duration-500 group-hover:translate-x-2 group-hover:translate-y-2"></div>
-                        <div class="overflow-hidden">
-                            <!-- NOTA: Asegúrate de tener la imagen 'jen.jpeg' en la carpeta 'public' -->
-                            <img src="./jen.jpeg" alt="Bailarina Jen" class="relative z-10 w-full shadow-lg object-cover h-[550px] transition-all duration-1000 transform hover:scale-105">
+                        <div class="absolute -top-4 -left-4 w-full h-full border border-brand-teal/30 rounded-2xl z-0 transition-transform duration-500 group-hover:translate-x-2 group-hover:translate-y-2 bg-white/20 backdrop-blur-sm"></div>
+                        <div class="overflow-hidden rounded-xl shadow-2xl relative z-10">
+                            <img src="./jen.jpeg" alt="Bailarina Jen" class="w-full object-cover h-[550px] transition-all duration-1000 transform hover:scale-105">
                         </div>
                     </div>
                     <div class="w-full md:w-1/2 section-reveal-right">
-                        <span class="text-brand-teal font-bold uppercase tracking-widest text-sm mb-2 block">Directora & Instructora</span>
-                        <h2 class="text-4xl mb-6 text-brand-dark pb-4 inline-block text-balance">Hola, soy Jen</h2>
-                        <div class="reveal-line mb-6"></div>
-                        <p class="text-gray-600 mb-6 leading-relaxed text-lg">
-                            Mi vida ha estado dedicada a la danza y el movimiento. Actualmente soy orgullosa bailarina del <strong>Ballet de Jalisco desde el 2025</strong>, continuando una trayectoria que me ha llevado por escenarios internacionales.
-                        </p>
-                        <p class="text-gray-600 mb-6 leading-relaxed text-lg">
-                            Fui bailarina en el <strong>Madison Ballet (2021-2023)</strong> y aprendiz en el Ballet de Jalisco (2017-2019). Mi formación técnica me permite hoy ofrecer un método preciso y efectivo.
-                        </p>
-                        <p class="text-gray-600 mb-8 leading-relaxed text-lg">
-                            A través de <strong>Ballet Fit by Jen</strong>, fusiono la disciplina técnica del ballet con el acondicionamiento físico para ofrecerte un entrenamiento que fortalece tu cuerpo y eleva tu confianza.
-                        </p>
+                        <div class="glass-card p-8 md:p-10 border-white/60">
+                            <span class="text-brand-teal font-bold uppercase tracking-widest text-sm mb-2 block">Directora & Instructora</span>
+                            <h2 class="text-4xl mb-6 text-brand-dark pb-4 inline-block text-balance italic">Hola, soy Jen</h2>
+                            <div class="reveal-line mb-6"></div>
+                            <p class="text-gray-600 mb-6 leading-relaxed text-lg">
+                                Mi vida ha estado dedicada a la danza y el movimiento. Actualmente soy orgullosa bailarina del <strong>Ballet de Jalisco desde el 2025</strong>, continuando una trayectoria que me ha llevado por escenarios internacionales.
+                            </p>
+                            <p class="text-gray-600 mb-6 leading-relaxed text-lg">
+                                Fui bailarina en el <strong>Madison Ballet (2021-2023)</strong> y aprendiz en el Ballet de Jalisco (2017-2019). Mi formación técnica me permite hoy ofrecer un método preciso y efectivo.
+                            </p>
+                            <p class="text-gray-600 mb-8 leading-relaxed text-lg">
+                                A través de <strong>Ballet Fit by Jen</strong>, fusiono la disciplina técnica del ballet con el acondicionamiento físico para ofrecerte un entrenamiento que fortalece tu cuerpo y eleva tu confianza.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Method & Classes (CONTENIDO RESTAURADO) -->
-        <section id="metodo" class="py-20 bg-brand-tealLight/30">
+        <section id="metodo" class="py-20">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16 section-reveal">
                     <span class="text-brand-teal font-bold uppercase tracking-widest text-sm">Técnica & Movimiento</span>
-                    <h2 class="text-4xl mt-2 text-brand-dark">¿Qué es Ballet Fit?</h2>
-                    <p class="max-w-2xl mx-auto mt-4 text-gray-600 text-lg px-4 italic">
+                    <h2 class="text-4xl mt-2 text-brand-dark italic">¿Qué es Ballet Fit?</h2>
+                    <p class="max-w-2xl mx-auto mt-4 text-gray-600 text-lg px-4">
                         Es un entrenamiento completo de fuerza y resistencia que combina el pilates y el entrenamiento funcional.
                     </p>
                     <div class="w-24 h-1 bg-brand-teal mx-auto mt-8 reveal-line"></div>
                 </div>
 
                 <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16 px-4">
-                    <!-- Tarjeta 1 -->
-                    <div class="card-hover bg-white p-8 rounded-sm shadow-sm border-t-4 border-transparent text-center section-reveal-item group">
+                    <div class="glass-card card-hover p-8 text-center section-reveal-item group">
                         <div class="text-brand-teal text-5xl mb-4 transition-transform duration-300 group-hover:scale-110"><i class="ph ph-barbell"></i></div>
                         <h4 class="font-bold mb-2 text-lg">Polainas o Mancuernas</h4>
                         <p class="text-sm text-gray-500">Para agregar resistencia y tonificar.</p>
                     </div>
-                    <!-- Tarjeta 2 -->
-                    <div class="card-hover bg-white p-8 rounded-sm shadow-sm border-t-4 border-transparent text-center section-reveal-item group" style="transition-delay: 0.1s">
+                    <div class="glass-card card-hover p-8 text-center section-reveal-item group" style="transition-delay: 0.1s">
                         <div class="text-brand-teal text-5xl mb-4 transition-transform duration-300 group-hover:scale-110"><i class="ph ph-waves"></i></div>
                         <h4 class="font-bold mb-2 text-lg">Liga de Resistencia</h4>
                         <p class="text-sm text-gray-500">Trabajo profundo y elongación.</p>
                     </div>
-                    <!-- Tarjeta 3 -->
-                    <div class="card-hover bg-white p-8 rounded-sm shadow-sm border-t-4 border-transparent text-center section-reveal-item group" style="transition-delay: 0.2s">
+                    <div class="glass-card card-hover p-8 text-center section-reveal-item group" style="transition-delay: 0.2s">
                         <div class="text-brand-teal text-5xl mb-4 transition-transform duration-300 group-hover:scale-110"><i class="ph ph-rug"></i></div>
                         <h4 class="font-bold mb-2 text-lg">Tapete de pilates</h4>
                         <p class="text-sm text-gray-500">Tu espacio personal de trabajo.</p>
                     </div>
-                    <!-- Tarjeta 4 -->
-                    <div class="card-hover heart-beat bg-white p-8 rounded-sm shadow-sm border-t-4 border-transparent text-center section-reveal-item group" style="transition-delay: 0.3s">
+                    <div class="glass-card card-hover heart-beat p-8 text-center section-reveal-item group" style="transition-delay: 0.3s">
                         <div class="text-brand-teal text-5xl mb-4 transition-transform duration-300"><i class="ph ph-heartbeat"></i></div>
                         <h4 class="font-bold mb-2 text-lg">Cardio & Fuerza</h4>
                         <p class="text-sm text-gray-500">Mejora tu condición física general.</p>
@@ -240,39 +269,39 @@
             </div>
         </section>
 
-        <!-- Schedule / Pricing Preview (ESTILOS RESTAURADOS) -->
-        <section id="horarios" class="py-20 bg-white">
+        <section id="horarios" class="py-20">
             <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-12 section-reveal">
-                    <h3 class="text-4xl text-brand-dark mb-2">Planes y Horarios 2026</h3>
+                    <h3 class="text-4xl text-brand-dark mb-2 italic">Planes y Horarios 2026</h3>
                     <div class="w-16 h-1 bg-brand-teal mx-auto reveal-line"></div>
                 </div>
                 
                 <div class="flex flex-col md:flex-row gap-12 mb-20">
                     <div class="flex-1 section-reveal-left">
-                        <h3 class="text-2xl mb-8 border-l-4 border-brand-teal pl-4 text-brand-dark italic font-medium">Horarios de Clase</h3>
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center border-b border-gray-100 pb-3 group transition-all">
-                                <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Lunes</span>
-                                <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">7:00 pm - 8:00 pm</span>
-                            </div>
-                            <div class="flex justify-between items-center border-b border-gray-100 pb-3 group transition-all">
-                                <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Miércoles</span>
-                                <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">7:00 pm - 8:00 pm</span>
-                            </div>
-                            <div class="flex justify-between items-center border-b border-gray-100 pb-3 group transition-all">
-                                <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Viernes</span>
-                                <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">7:00 pm - 8:00 pm</span>
-                            </div>
-                            <div class="flex justify-between items-center border-b border-gray-100 pb-3 group transition-all">
-                                <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Sábado</span>
-                                <span class="text-gray-600 font-medium bg-brand-tealLight px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">9:00 am - 10:00 am</span>
+                        <div class="glass-card p-8 h-full">
+                            <h3 class="text-2xl mb-8 border-l-4 border-brand-teal pl-4 text-brand-dark italic font-medium">Horarios de Clase</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center border-b border-gray-100/50 pb-3 group transition-all">
+                                    <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Lunes</span>
+                                    <span class="text-gray-600 font-medium bg-brand-tealLight/50 px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">7:00 pm - 8:00 pm</span>
+                                </div>
+                                <div class="flex justify-between items-center border-b border-gray-100/50 pb-3 group transition-all">
+                                    <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Miércoles</span>
+                                    <span class="text-gray-600 font-medium bg-brand-tealLight/50 px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">7:00 pm - 8:00 pm</span>
+                                </div>
+                                <div class="flex justify-between items-center border-b border-gray-100/50 pb-3 group transition-all">
+                                    <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Viernes</span>
+                                    <span class="text-gray-600 font-medium bg-brand-tealLight/50 px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">7:00 pm - 8:00 pm</span>
+                                </div>
+                                <div class="flex justify-between items-center border-b border-gray-100/50 pb-3 group transition-all">
+                                    <span class="text-brand-dark font-bold block text-lg transition-transform group-hover:translate-x-2">Sábado</span>
+                                    <span class="text-gray-600 font-medium bg-brand-tealLight/50 px-3 py-1 rounded-full text-sm group-hover:bg-brand-teal group-hover:text-white transition-colors">9:00 am - 10:00 am</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Tarjeta de Membresías -->
-                    <div class="flex-1 bg-brand-tealLight/30 p-8 rounded-lg border border-brand-tealLight shadow-sm section-reveal-right card-hover hover:border-brand-teal transition-all duration-300">
+                    <div class="flex-1 glass-card p-8 section-reveal-right card-hover border border-brand-teal/20">
                         <h3 class="text-2xl mb-8 text-center text-brand-dark italic font-semibold">Membresías Mensuales</h3>
                         <div class="space-y-4">
                             <div class="flex justify-between items-center border-b border-brand-teal/10 pb-2 group/item">
@@ -295,24 +324,23 @@
                                 <span class="font-medium italic text-gray-600">Clase suelta</span>
                                 <span class="text-xl text-brand-dark font-bold">$150 MXN</span>
                             </div>
-                            <button onclick="toggleSystem(true)" class="btn-shine block w-full text-center mt-8 bg-brand-teal text-white py-4 font-bold text-sm uppercase tracking-widest hover:bg-brand-dark transition-all shadow-md cursor-pointer">
+                            <button onclick="toggleSystem(true)" class="btn-shine block w-full text-center mt-8 bg-brand-teal/90 backdrop-blur-sm text-white py-4 font-bold text-sm uppercase tracking-widest hover:bg-brand-dark transition-all shadow-lg rounded-lg border border-white/20 cursor-pointer">
                                 Reservar mi Lugar
                             </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Invitación Clase de Prueba -->
-                <div class="section-reveal bg-brand-dark text-white p-10 md:p-16 rounded-sm relative overflow-hidden text-center group">
+                <div class="section-reveal bg-brand-dark/95 backdrop-blur-md text-white p-10 md:p-16 rounded-2xl relative overflow-hidden text-center group border border-white/10 shadow-2xl">
                     <div class="absolute top-0 left-0 w-full h-1 bg-brand-teal"></div>
-                    <div class="absolute -right-20 -bottom-20 w-64 h-64 bg-white/5 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000"></div>
+                    <div class="absolute -right-20 -bottom-20 w-64 h-64 bg-brand-teal/20 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-1000"></div>
                     
                     <h4 class="text-3xl md:text-4xl italic mb-6">¿Aún tienes dudas?</h4>
                     <p class="text-gray-300 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
                         Te invitamos a vivir la experiencia de una <strong class="text-white font-bold">clase de prueba</strong>. Descubre cómo el Ballet Fit puede transformar no solo tu cuerpo, sino también tu energía.
                     </p>
                     <div class="flex flex-col sm:flex-row justify-center items-center gap-6">
-                        <a href="https://wa.me/3331844195" target="_blank" class="btn-shine px-10 py-4 bg-white text-brand-dark font-bold uppercase tracking-widest text-sm hover:bg-brand-teal hover:text-white transition-all duration-300 rounded-sm shadow-xl flex items-center gap-3 cursor-pointer">
+                        <a href="https://wa.me/3331844195" target="_blank" class="btn-shine px-10 py-4 bg-white text-brand-dark font-bold uppercase tracking-widest text-sm hover:bg-brand-teal hover:text-white transition-all duration-300 rounded-lg shadow-xl flex items-center gap-3 border border-transparent hover:border-white/50 cursor-pointer">
                             <i class="ph ph-calendar-plus text-xl"></i>
                             Agendar Clase de Prueba
                         </a>
@@ -325,8 +353,7 @@
             </div>
         </section>
 
-        <!-- Footer -->
-        <footer id="contacto" class="bg-brand-tealLight/40 pt-20 pb-10 section-reveal">
+        <footer id="contacto" class="bg-white/40 backdrop-blur-md border-t border-white/50 pt-20 pb-10 section-reveal mt-20">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-12 mb-16">
                     
@@ -336,10 +363,10 @@
                             Un espacio dedicado a la conexión cuerpo-mente a través del movimiento consciente y el acondicionamiento integral.
                         </p>
                         <div class="flex space-x-4">
-                            <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm hover:-translate-y-1">
+                            <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="w-10 h-10 bg-white/60 backdrop-blur-sm rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm hover:-translate-y-1 border border-white/50">
                                 <i class="ph ph-instagram-logo text-xl"></i>
                             </a>
-                            <a href="https://wa.me/3331844195" target="_blank" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm hover:-translate-y-1">
+                            <a href="https://wa.me/3331844195" target="_blank" class="w-10 h-10 bg-white/60 backdrop-blur-sm rounded-full flex items-center justify-center text-brand-teal hover:bg-brand-teal hover:text-white transition-all shadow-sm hover:-translate-y-1 border border-white/50">
                                 <i class="ph ph-whatsapp-logo text-xl"></i>
                             </a>
                         </div>
@@ -355,14 +382,14 @@
                         </ul>
                     </div>
 
-                    <div class="col-span-1 bg-white p-6 shadow-sm rounded-sm text-center card-hover">
+                    <div class="col-span-1 glass-card p-6 text-center card-hover">
                         <h4 class="text-xl mb-4 text-brand-dark">¿List@ para empezar?</h4>
                         <p class="text-gray-500 text-sm mb-6">Agenda tu clase de prueba vía WhatsApp o Instagram.</p>
                         <div class="flex flex-col gap-3">
-                            <a href="https://wa.me/3331844195" target="_blank" class="btn-shine bg-brand-teal text-white py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-dark transition-colors rounded-sm shadow-sm">
+                            <a href="https://wa.me/3331844195" target="_blank" class="btn-shine bg-brand-teal text-white py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-dark transition-colors rounded-lg shadow-md border border-white/20">
                                 WhatsApp
                             </a>
-                            <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="btn-shine border border-brand-teal text-brand-teal py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-teal hover:text-white transition-colors rounded-sm">
+                            <a href="https://www.instagram.com/balletfitbyjen/" target="_blank" class="btn-shine border border-brand-teal text-brand-teal py-3 font-bold text-xs uppercase tracking-widest hover:bg-brand-teal hover:text-white transition-colors rounded-lg">
                                 Instagram
                             </a>
                         </div>
@@ -370,7 +397,7 @@
 
                 </div>
 
-                <div class="border-t border-brand-tealLight pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="border-t border-brand-teal/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
                     <p class="text-[10px] text-gray-500 uppercase tracking-widest">&copy; 2026 Ballet Fit by Jen. Guadalajara, Jalisco.</p>
                     <div class="flex gap-6">
                         <button type="button" onclick="openModal('privacy-modal')" class="text-[10px] text-brand-teal uppercase tracking-widest font-bold hover:underline underline-offset-4 transition-all cursor-pointer">Aviso de Privacidad</button>
@@ -380,9 +407,8 @@
             </div>
         </footer>
 
-        <!-- Modals -->
-        <div id="privacy-modal" class="modal-overlay fixed inset-0 z-[100] items-center justify-center p-4 bg-brand-dark/80">
-            <div class="bg-white w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-sm shadow-2xl p-8 md:p-12 relative transform transition-all duration-500 translate-y-0">
+        <div id="privacy-modal" class="modal-overlay fixed inset-0 z-[100] items-center justify-center p-4 bg-brand-dark/60 backdrop-blur-md">
+            <div class="bg-white/90 backdrop-blur-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-8 md:p-12 relative transform transition-all duration-500 translate-y-0 border border-white/50">
                 <button onclick="closeModal('privacy-modal')" class="absolute top-6 right-6 text-2xl text-gray-400 hover:text-brand-dark cursor-pointer">
                     <i class="ph ph-x"></i>
                 </button>
@@ -408,13 +434,13 @@
                     <p class="pt-4 border-t border-gray-100 italic text-[11px]">Última actualización: Enero 2026.</p>
                 </div>
                 <div class="mt-8">
-                    <button onclick="closeModal('privacy-modal')" class="w-full bg-brand-dark text-white py-3 uppercase tracking-widest text-xs font-bold hover:bg-brand-teal transition-colors rounded-sm cursor-pointer">Entendido</button>
+                    <button onclick="closeModal('privacy-modal')" class="w-full bg-brand-dark text-white py-3 uppercase tracking-widest text-xs font-bold hover:bg-brand-teal transition-colors rounded-lg cursor-pointer shadow-lg">Entendido</button>
                 </div>
             </div>
         </div>
 
-        <div id="rules-modal" class="modal-overlay fixed inset-0 z-[100] items-center justify-center p-4 bg-brand-dark/80">
-            <div class="bg-white w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-sm shadow-2xl p-8 md:p-12 relative transform transition-all duration-500 translate-y-0">
+        <div id="rules-modal" class="modal-overlay fixed inset-0 z-[100] items-center justify-center p-4 bg-brand-dark/60 backdrop-blur-md">
+            <div class="bg-white/90 backdrop-blur-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl shadow-2xl p-8 md:p-12 relative transform transition-all duration-500 translate-y-0 border border-white/50">
                 <button onclick="closeModal('rules-modal')" class="absolute top-6 right-6 text-2xl text-gray-400 hover:text-brand-dark cursor-pointer">
                     <i class="ph ph-x"></i>
                 </button>
@@ -484,23 +510,16 @@
                     </div>
                 </div>
                 <div class="mt-8">
-                    <button onclick="closeModal('rules-modal')" class="btn-shine w-full bg-brand-dark text-white py-3 uppercase tracking-widest text-xs font-bold hover:bg-brand-teal transition-colors rounded-sm shadow-md cursor-pointer">He leído el reglamento</button>
+                    <button onclick="closeModal('rules-modal')" class="btn-shine w-full bg-brand-dark text-white py-3 uppercase tracking-widest text-xs font-bold hover:bg-brand-teal transition-colors rounded-lg shadow-md cursor-pointer">He leído el reglamento</button>
                 </div>
             </div>
         </div>
 
-        <!-- WhatsApp Floating Button -->
-        <a href="https://wa.me/3331844195" target="_blank" class="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 hover:rotate-6 transition-all">
+        <a href="https://wa.me/3331844195" target="_blank" class="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg hover:scale-110 hover:rotate-6 transition-all border border-white/50 backdrop-blur-sm">
             <i class="ph ph-whatsapp-logo text-3xl"></i>
         </a>
     
-    </div> <!-- FIN DEL WRAPPER LANDING -->
-
-
-    <!-- ============================================== -->
-    <!-- AQUÍ SE INYECTA EL SISTEMA DE REACT (OCULTO AL INICIO) -->
-    <!-- ============================================== -->
-    <div id="root" style="display: none;"></div>
+    </div> <div id="root" style="display: none;"></div>
     
 
     <script>

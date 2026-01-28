@@ -181,25 +181,21 @@ export default function App() {
       await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(1) }, { merge: true });
       showNotification('¡Clase reservada!');
 
-      // --- NOTIFICACIÓN WHATSAPP (TÉCNICA ASCII SEGURA) ---
+      // --- NOTIFICACIÓN WHATSAPP (MÉTODO DIRECTO) ---
       const telefonoJen = "5213331844195"; 
       
-      // Codificamos el texto normal para URL
       const parte1 = encodeURIComponent(`¡Hola Jen! `);
       const parte2 = encodeURIComponent(` Soy *${user.firstName}*.\nAcabo de reservar mi clase de *Ballet Fit* para el:\n`);
       const parte3 = encodeURIComponent(` *${sessionConfig.day}* a las *${sessionConfig.time}*.\n\n¡Nos vemos en el estudio! `);
 
-      // Pegamos los códigos de emojis (Hexadecimal) manualmente entre el texto
-      // %F0%9F%A9%B0 = Zapatillas
-      // %F0%9F%97%93 = Calendario
-      // %E2%9C%A8      = Brillos
+      // %F0%9F%A9%B0 = Zapatillas | %F0%9F%97%93 = Calendario | %E2%9C%A8 = Brillos
       const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${parte1}%F0%9F%A9%B0${parte2}%F0%9F%97%93${parte3}%E2%9C%A8`;
       
-      setTimeout(() => {
-        if(window.confirm("¿Enviar confirmación por WhatsApp?")) {
-            window.open(urlWhatsApp, '_blank');
-        }
-      }, 500);
+      // CAMBIO CLAVE: Quitamos setTimeout y usamos confirm directo
+      if(window.confirm("¿Abrir WhatsApp para enviar confirmación?")) {
+          // Usamos location.href en lugar de window.open para evitar bloqueos en celular
+          window.location.href = urlWhatsApp; 
+      }
 
     } catch (err) { showNotification('Error al reservar', 'error'); }
   };
@@ -225,7 +221,7 @@ export default function App() {
       await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(-1) });
       showNotification(isLateCancellation ? 'Cancelada (sin reembolso).' : 'Clase cancelada.');
 
-      // --- NOTIFICACIÓN WHATSAPP (TÉCNICA ASCII SEGURA) ---
+      // --- NOTIFICACIÓN WHATSAPP (MÉTODO DIRECTO) ---
       const telefonoJen = "5213331844195"; 
       let urlWhatsApp = "";
 
@@ -244,11 +240,10 @@ export default function App() {
          urlWhatsApp = `https://wa.me/${telefonoJen}?text=${t1}%F0%9F%91%8B${t2}%E2%9C%A8`;
       }
       
-      setTimeout(() => {
-        if(window.confirm("¿Notificar cancelación por WhatsApp?")) {
-            window.open(urlWhatsApp, '_blank');
-        }
-      }, 500);
+      // CAMBIO CLAVE: Redirección directa sin esperas
+      if(window.confirm("¿Notificar cancelación por WhatsApp?")) {
+          window.location.href = urlWhatsApp;
+      }
 
     } catch (err) { showNotification('Error al cancelar', 'error'); }
   };

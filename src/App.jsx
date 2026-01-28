@@ -172,32 +172,39 @@ export default function App() {
     const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
     const sessionState = sessionsData[sessionId];
     
-    if (isClassInPast(sessionConfig.dayIdx, sessionConfig.time)) { showNotification('Clase finalizada.', 'error'); return; }
-    if (sessionState?.isClosed) { showNotification('Clase cerrada.', 'error'); return; }
-    if (user.credits <= 0) { showNotification('Sin créditos.', 'error'); return; }
+    // Validaciones
+    if (isClassInPast(sessionConfig.dayIdx, sessionConfig.time)) { 
+      showNotification('Clase finalizada.', 'error'); 
+      return; 
+    }
+    if (sessionState?.isClosed) { 
+      showNotification('Clase cerrada.', 'error'); 
+      return; 
+    }
+    if (user.credits <= 0) { 
+      showNotification('Sin créditos.', 'error'); 
+      return; 
+    }
     
     try {
-      await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'alumnas', user.id), { credits: increment(-1), history: arrayUnion(sessionId) });
-      await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(1) }, { merge: true });
+      // 1. Descontar crédito y agregar al historial de la alumna
+      await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'alumnas', user.id), { 
+        credits: increment(-1), 
+        history: arrayUnion(sessionId) 
+      });
+
+      // 2. Sumar cupo a la sesión
+      await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { 
+        booked: increment(1) 
+      }, { merge: true });
+      
+      // 3. Notificación visual simple
       showNotification('¡Clase reservada!');
 
-      // --- NOTIFICACIÓN WHATSAPP (VIBRA PILATES/FIT) ---
-      const telefonoJen = "5213331844195"; 
-      
-      // Emojis "Indestructibles" (Unicode 6.0)
-      // \uD83D\uDCAA = Brazo Fuerte (💪) -> Perfecto para Pilates/Fuerza
-      // \uD83D\uDCC5 = Calendario (📅)
-      // \uD83D\uDC9C = Corazón Morado (💜) -> Elegante y Fit
-
-      const mensaje = `¡Hola Jen! \uD83D\uDCAA Soy *${user.firstName}*.\nListísima para mi clase de *Ballet Fit* del:\n\uD83D\uDCC5 *${sessionConfig.day}* a las *${sessionConfig.time}*.\n\n¡A entrenar! \uD83D\uDC9C`;
-      
-      const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${encodeURIComponent(mensaje)}`;
-      
-      if(window.confirm("¿Abrir WhatsApp para enviar confirmación?")) {
-          window.location.href = urlWhatsApp; 
-      }
-
-    } catch (err) { showNotification('Error al reservar', 'error'); }
+    } catch (err) { 
+      console.error(err);
+      showNotification('Error al reservar', 'error'); 
+    }
   };
 
   // --- LÓGICA DE ALUMNAS: CANCELACIÓN ---
@@ -205,45 +212,42 @@ export default function App() {
     if (!auth.currentUser) return;
     const sessionConfig = WEEKLY_SCHEDULE.find(s => s.id === sessionId);
     const hoursRemaining = getHoursUntilClass(sessionConfig.dayIdx, sessionConfig.time);
+    
+    // Regla de las 6 horas
     const isLateCancellation = hoursRemaining < 6;
     
+    // Confirmación si es tarde (Advertencia de penalización)
     if (isLateCancellation && !window.confirm("Faltan menos de 6h. El lugar se libera pero NO se te devuelve el crédito. ¿Deseas continuar?")) return;
     
     try {
       const studentRef = doc(db, 'artifacts', APP_ID, 'public', 'data', 'alumnas', user.id);
       
       if (!isLateCancellation) {
-        await updateDoc(studentRef, { credits: increment(1), history: arrayRemove(sessionId) });
+        // Cancelación a tiempo: Se devuelve el crédito
+        await updateDoc(studentRef, { 
+          credits: increment(1), 
+          history: arrayRemove(sessionId) 
+        });
       } else {
-        await updateDoc(studentRef, { history: arrayRemove(sessionId) });
+        // Cancelación tardía: Solo se quita del historial (pierde el crédito)
+        await updateDoc(studentRef, { 
+          history: arrayRemove(sessionId) 
+        });
       }
       
-      await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(-1) });
+      // Liberar el cupo en la sesión
+      await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { 
+        booked: increment(-1) 
+      });
+      
       showNotification(isLateCancellation ? 'Cancelada (sin reembolso).' : 'Clase cancelada.');
 
-      // --- NOTIFICACIÓN WHATSAPP (VIBRA PILATES) ---
-      const telefonoJen = "5213331844195"; 
-      let mensaje = "";
-
-      if (isLateCancellation) {
-         // \uD83D\uDE22 = Carita Llorando (😢)
-         // \uD83D\uDE4F = Manos rezando (🙏)
-         mensaje = `Hola Jen \uD83D\uDE22. Soy *${user.firstName}*.\nTuve un imprevisto y no llego a mi clase de hoy *${sessionConfig.day}* a las *${sessionConfig.time}*.\nSé que es tarde, libera mi lugar para alguien más. \uD83D\uDE4F`;
-      } else {
-         // \uD83D\uDC4B = Mano saludando (👋)
-         // \u2728      = Brillos (✨)
-         mensaje = `Hola Jen \uD83D\uDC4B. Soy *${user.firstName}*.\nTe aviso que liberé mi lugar para la clase del *${sessionConfig.day}* a las *${sessionConfig.time}* para que alguien más lo aproveche. \u2728`;
-      }
-      
-      const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${encodeURIComponent(mensaje)}`;
-
-      if(window.confirm("¿Notificar cancelación por WhatsApp?")) {
-          window.location.href = urlWhatsApp;
-      }
-
-    } catch (err) { showNotification('Error al cancelar', 'error'); }
+    } catch (err) { 
+      console.error(err);
+      showNotification('Error al cancelar', 'error'); 
+    }
   };
-
+  
   const handleGlobalUpdatePass = async () => {
     if(!newPass.trim()) return;
     const collectionName = user.role === 'teacher' ? 'maestros' : 'alumnas';

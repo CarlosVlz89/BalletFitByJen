@@ -181,18 +181,17 @@ export default function App() {
       await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(1) }, { merge: true });
       showNotification('¡Clase reservada!');
 
-      // --- NOTIFICACIÓN WHATSAPP (API DIRECTA + EMOJIS SEGUROS) ---
+      // --- NOTIFICACIÓN WHATSAPP (VIBRA PILATES/FIT) ---
       const telefonoJen = "5213331844195"; 
       
-      // Emojis definidos como constantes JavaScript
-      const shoes = '\uD83E\uDE70'; // 🩰
-      const calendar = '\uD83D\uDCC5'; // 📅 (Este es más compatible que el anterior)
-      const sparkles = '\u2728'; // ✨
+      // Emojis "Indestructibles" (Unicode 6.0)
+      // \uD83D\uDCAA = Brazo Fuerte (💪) -> Perfecto para Pilates/Fuerza
+      // \uD83D\uDCC5 = Calendario (📅)
+      // \uD83D\uDC9C = Corazón Morado (💜) -> Elegante y Fit
 
-      const mensaje = `¡Hola Jen! ${shoes} Soy *${user.firstName}*.\nAcabo de reservar mi clase de *Ballet Fit* para el:\n${calendar} *${sessionConfig.day}* a las *${sessionConfig.time}*.\n\n¡Nos vemos en el estudio! ${sparkles}`;
+      const mensaje = `¡Hola Jen! \uD83D\uDCAA Soy *${user.firstName}*.\nListísima para mi clase de *Ballet Fit* del:\n\uD83D\uDCC5 *${sessionConfig.day}* a las *${sessionConfig.time}*.\n\n¡A entrenar! \uD83D\uDC9C`;
       
-      // CAMBIO IMPORTANTE: Usamos api.whatsapp.com/send
-      const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoJen}&text=${encodeURIComponent(mensaje)}`;
+      const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${encodeURIComponent(mensaje)}`;
       
       if(window.confirm("¿Abrir WhatsApp para enviar confirmación?")) {
           window.location.href = urlWhatsApp; 
@@ -222,20 +221,21 @@ export default function App() {
       await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(-1) });
       showNotification(isLateCancellation ? 'Cancelada (sin reembolso).' : 'Clase cancelada.');
 
-      // --- NOTIFICACIÓN WHATSAPP (API DIRECTA) ---
+      // --- NOTIFICACIÓN WHATSAPP (VIBRA PILATES) ---
       const telefonoJen = "5213331844195"; 
       let mensaje = "";
 
       if (isLateCancellation) {
-         // 🥺 = \uD83E\uDD7A | 🙏 = \uD83D\uDE4F
-         mensaje = `Hola Jen \uD83E\uDD7A. Soy *${user.firstName}*.\nTuve un imprevisto y no podré llegar a mi clase de hoy *${sessionConfig.day}* a las *${sessionConfig.time}*.\nSé que es tarde, libera mi lugar para alguien más. \uD83D\uDE4F`;
+         // \uD83D\uDE22 = Carita Llorando (😢)
+         // \uD83D\uDE4F = Manos rezando (🙏)
+         mensaje = `Hola Jen \uD83D\uDE22. Soy *${user.firstName}*.\nTuve un imprevisto y no llego a mi clase de hoy *${sessionConfig.day}* a las *${sessionConfig.time}*.\nSé que es tarde, libera mi lugar para alguien más. \uD83D\uDE4F`;
       } else {
-         // 👋 = \uD83D\uDC4B | ✨ = \u2728
-         mensaje = `Hola Jen \uD83D\uDC4B. Soy *${user.firstName}*.\nTe aviso que liberé mi lugar para la clase del *${sessionConfig.day}* a las *${sessionConfig.time}* para que alguien más pueda aprovecharlo. \u2728`;
+         // \uD83D\uDC4B = Mano saludando (👋)
+         // \u2728      = Brillos (✨)
+         mensaje = `Hola Jen \uD83D\uDC4B. Soy *${user.firstName}*.\nTe aviso que liberé mi lugar para la clase del *${sessionConfig.day}* a las *${sessionConfig.time}* para que alguien más lo aproveche. \u2728`;
       }
       
-      // CAMBIO IMPORTANTE: Usamos api.whatsapp.com/send
-      const urlWhatsApp = `https://api.whatsapp.com/send?phone=${telefonoJen}&text=${encodeURIComponent(mensaje)}`;
+      const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${encodeURIComponent(mensaje)}`;
 
       if(window.confirm("¿Notificar cancelación por WhatsApp?")) {
           window.location.href = urlWhatsApp;

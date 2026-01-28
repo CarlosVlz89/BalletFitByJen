@@ -181,19 +181,20 @@ export default function App() {
       await setDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(1) }, { merge: true });
       showNotification('¡Clase reservada!');
 
-      // --- NOTIFICACIÓN WHATSAPP (MÉTODO DIRECTO) ---
+      // --- NOTIFICACIÓN WHATSAPP (MÉTODO JS UNICODE) ---
       const telefonoJen = "5213331844195"; 
       
-      const parte1 = encodeURIComponent(`¡Hola Jen! `);
-      const parte2 = encodeURIComponent(` Soy *${user.firstName}*.\nAcabo de reservar mi clase de *Ballet Fit* para el:\n`);
-      const parte3 = encodeURIComponent(` *${sessionConfig.day}* a las *${sessionConfig.time}*.\n\n¡Nos vemos en el estudio! `);
+      // Definimos los emojis con código seguro (ASCII)
+      const shoes = '\uD83E\uDE70'; // 🩰
+      const calendar = '\uD83D\uDDD3'; // 🗓
+      const sparkles = '\u2728'; // ✨
 
-      // %F0%9F%A9%B0 = Zapatillas | %F0%9F%97%93 = Calendario | %E2%9C%A8 = Brillos
-      const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${parte1}%F0%9F%A9%B0${parte2}%F0%9F%97%93${parte3}%E2%9C%A8`;
+      const mensaje = `¡Hola Jen! ${shoes} Soy *${user.firstName}*.\nAcabo de reservar mi clase de *Ballet Fit* para el:\n${calendar} *${sessionConfig.day}* a las *${sessionConfig.time}*.\n\n¡Nos vemos en el estudio! ${sparkles}`;
       
-      // CAMBIO CLAVE: Quitamos setTimeout y usamos confirm directo
+      // Codificamos todo el mensaje de una sola vez
+      const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${encodeURIComponent(mensaje)}`;
+      
       if(window.confirm("¿Abrir WhatsApp para enviar confirmación?")) {
-          // Usamos location.href en lugar de window.open para evitar bloqueos en celular
           window.location.href = urlWhatsApp; 
       }
 
@@ -221,26 +222,22 @@ export default function App() {
       await updateDoc(doc(db, 'artifacts', APP_ID, 'public', 'data', 'sesiones', sessionId), { booked: increment(-1) });
       showNotification(isLateCancellation ? 'Cancelada (sin reembolso).' : 'Clase cancelada.');
 
-      // --- NOTIFICACIÓN WHATSAPP (MÉTODO DIRECTO) ---
+      // --- NOTIFICACIÓN WHATSAPP (MÉTODO JS UNICODE) ---
       const telefonoJen = "5213331844195"; 
-      let urlWhatsApp = "";
+      let mensaje = "";
 
       if (isLateCancellation) {
-         // Emojis: Triste (%F0%9F%A5%BA) y Rezo (%F0%9F%99%8F)
-         const t1 = encodeURIComponent(`Hola Jen `);
-         const t2 = encodeURIComponent(` Soy *${user.firstName}*.\nTuve un imprevisto y no podré llegar a mi clase de hoy *${sessionConfig.day}* a las *${sessionConfig.time}*.\nSé que es tarde, libera mi lugar para alguien más. `);
-         
-         urlWhatsApp = `https://wa.me/${telefonoJen}?text=${t1}%F0%9F%A5%BA${t2}%F0%9F%99%8F`;
-
+         // 🥺 = \uD83E\uDD7A
+         // 🙏 = \uD83D\uDE4F
+         mensaje = `Hola Jen \uD83E\uDD7A. Soy *${user.firstName}*.\nTuve un imprevisto y no podré llegar a mi clase de hoy *${sessionConfig.day}* a las *${sessionConfig.time}*.\nSé que es tarde, libera mi lugar para alguien más. \uD83D\uDE4F`;
       } else {
-         // Emojis: Saludo (%F0%9F%91%8B) y Brillos (%E2%9C%A8)
-         const t1 = encodeURIComponent(`Hola Jen `);
-         const t2 = encodeURIComponent(` Soy *${user.firstName}*.\nTe aviso que liberé mi lugar para la clase del *${sessionConfig.day}* a las *${sessionConfig.time}* para que alguien más pueda aprovecharlo. `);
-         
-         urlWhatsApp = `https://wa.me/${telefonoJen}?text=${t1}%F0%9F%91%8B${t2}%E2%9C%A8`;
+         // 👋 = \uD83D\uDC4B
+         // ✨ = \u2728
+         mensaje = `Hola Jen \uD83D\uDC4B. Soy *${user.firstName}*.\nTe aviso que liberé mi lugar para la clase del *${sessionConfig.day}* a las *${sessionConfig.time}* para que alguien más pueda aprovecharlo. \u2728`;
       }
       
-      // CAMBIO CLAVE: Redirección directa sin esperas
+      const urlWhatsApp = `https://wa.me/${telefonoJen}?text=${encodeURIComponent(mensaje)}`;
+
       if(window.confirm("¿Notificar cancelación por WhatsApp?")) {
           window.location.href = urlWhatsApp;
       }
